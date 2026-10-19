@@ -18,7 +18,7 @@ type HealthRecord = {
   value: string
   note: string | null
   record_date: string
-  next_date: string | null // Новое поле для напоминаний
+  next_date: string | null
 }
 
 const RECORD_LABELS: Record<string, string> = {
@@ -42,12 +42,14 @@ export default function Home() {
   const [savingPet, setSavingPet] = useState(false)
   const [savingRecord, setSavingRecord] = useState(false)
 
-  // Стейт для формы добавления питомца
+  // Стейт для формы питомца
+  const [editingPetId, setEditingPetId] = useState<string | null>(null)
   const [petName, setPetName] = useState('')
   const [petSpecies, setPetSpecies] = useState('Собака')
   const [petBreed, setPetBreed] = useState('')
   const [petBirthDate, setPetBirthDate] = useState('')
   const [petFile, setPetFile] = useState<File | null>(null)
+  const [petAvatarUrl, setPetAvatarUrl] = useState<string | null>(null) // Храним старое фото при редактировании
 
   // Стейт для записей
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
@@ -55,7 +57,7 @@ export default function Home() {
   const [recordValue, setRecordValue] = useState('')
   const [recordDate, setRecordDate] = useState(todayLocal())
   const [recordNote, setRecordNote] = useState('')
-  const [recordNextDate, setRecordNextDate] = useState('') // Для напоминаний
+  const [recordNextDate, setRecordNextDate] = useState('')
 
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
 
@@ -104,7 +106,6 @@ export default function Home() {
     else setRecords([])
   }, [selectedPetId, fetchRecords])
 
-  // Функция загрузки фото
   async function uploadAvatar(file: File) {
     const fileExt = file.name.split('.').pop()
     const fileName = `${Math.random()}.${fileExt}`
@@ -114,44 +115,74 @@ export default function Home() {
     return data.publicUrl
   }
 
-  async function addPet(e: React.FormEvent) {
+  // Функция для кнопки "Редактировать питомца"
+  function startEditingPet(pet: Pet) {
+    setEditingPetId(pet.id)
+    setPetName(pet.name)
+    setPetSpecies(pet.species || 'Собака')
+    setPetBreed(pet.breed || '')
+    setPetBirthDate(pet.birth_date || '')
+    setPetAvatarUrl(pet.avatar_url) // Запоминаем текущее фото
+    setPetFile(null) // Сбрасываем выбранный файл
+  }
+
+  // Очистка формы питомца
+  function resetPetForm() {
+    setEditingPetId(null)
+    setPetName('')
+    setPetSpecies('Собака')
+    setPetBreed('')
+    setPetBirthDate('')
+    setPetFile(null)
+    setPetAvatarUrl(null)
+  }
+
+  async function savePet(e: React.FormEvent) {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
     setSavingPet(true)
     
-    let avatarUrl = null
+    let avatarUrl = petAvatarUrl
     try {
       if (petFile) {
-        avatarUrl = await uploadAvatar(petFile)
+        avatarUrl = await uploadAvatar(petFile) // Загружаем новое фото, если выбрано
       }
     } catch (error: any) {
       toast.error('Ошибка загрузки фото: ' + error.message)
     }
 
-    const { data, error } = await supabase
-      .from('pets')
-      .insert({ 
-        name: petName.trim(), 
-        species: petSpecies, 
-        breed: petBreed || null,
-        birth_date: petBirthDate || null,
-        avatar_url: avatarUrl,
+    const petData = { 
+      name: petName.trim(), 
+      species: petSpecies, 
+      breed: petBreed || null,
+      birth_date: petBirthDate || null,
+      avatar_url: avatarUrl,
+    }
+
+    if (editingPetId) {
+      // Обновляем существующего
+      const { error } = await supabase.from('pets').update(petData).eq('id', editingPetId)
+      if (error) toast.error(error.message)
+      else {
+        toast.success('Профиль обновлен!')
+        fetchPets(editingPetId)
+        resetPetForm()
+      }
+    } else {
+      // Создаем нового
+      const { data, error } = await supabase.from('pets').insert({
+        ...petData,
         user_id: session.user.id 
-      })
-      .select()
-      .single()
+      }).select().single()
       
+      if (error) toast.error(error.message)
+      else {
+        toast.success('Питомец добавлен!')
+        fetchPets(data.id)
+        resetPetForm()
+      }
+    }
     setSavingPet(false)
-    if (error) return toast.error(error.message)
-    toast.success('Питомец добавлен!')
-    
-    // Очищаем форму
-    setPetName('')
-    setPetBreed('')
-    setPetBirthDate('')
-    setPetFile(null)
-    
-    fetchPets(data.id)
   }
 
   async function deletePet(id: string) {
@@ -161,9 +192,10 @@ export default function Home() {
     toast.success('Питомец удалён')
     if (selectedPetId === id) setSelectedPetId(null)
     setPets(prev => prev.filter(p => p.id !== id))
+    if (editingPetId === id) resetPetForm() // Если удалили того, кого редактировали
   }
 
-  function startEditing(record: HealthRecord) {
+  function startEditingRecord(record: HealthRecord) {
     setEditingRecordId(record.id)
     setRecordType(record.type)
     setRecordValue(record.value)
@@ -172,7 +204,7 @@ export default function Home() {
     setRecordNextDate(record.next_date || '')
   }
 
-  function resetForm() {
+  function resetRecordForm() {
     setEditingRecordId(null)
     setRecordType('weight')
     setRecordValue('')
@@ -205,7 +237,7 @@ export default function Home() {
       else {
         toast.success('Запись обновлена!')
         fetchRecords(selectedPetId)
-        resetForm()
+        resetRecordForm()
       }
     } else {
       const { error } = await supabase.from('health_records').insert({
@@ -216,17 +248,18 @@ export default function Home() {
       else {
         toast.success('Запись добавлена!')
         fetchRecords(selectedPetId)
-        resetForm()
+        resetRecordForm()
       }
     }
     setSavingRecord(false)
   }
 
   async function deleteRecord(id: string) {
+    if (!confirm('Удалить эту запись из истории?')) return // Добавили защиту от случайного удаления
     const { error } = await supabase.from('health_records').delete().eq('id', id)
     if (error) return toast.error(error.message)
     setRecords(prev => prev.filter(r => r.id !== id))
-    if (editingRecordId === id) resetForm()
+    if (editingRecordId === id) resetRecordForm()
   }
 
   async function handleLogout() {
@@ -234,10 +267,10 @@ export default function Home() {
     setPets([])
     setSelectedPetId(null)
     setRecords([])
-    resetForm()
+    resetPetForm()
+    resetRecordForm()
   }
 
-  // Функция для проверки напоминаний
   function getReminderStatus(nextDate: string | null) {
     if (!nextDate) return null;
     const today = new Date(todayLocal());
@@ -303,20 +336,34 @@ export default function Home() {
                   <span className="font-medium text-gray-800 block">{pet.name}</span>
                   <span className="text-xs text-gray-500">{pet.species} {pet.breed ? `• ${pet.breed}` : ''}</span>
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }}
-                  className="px-3 text-gray-300 hover:text-red-500 transition"
-                >
-                  ×
-                </button>
+                
+                {/* Кнопки управления питомцем */}
+                <div className="flex gap-1 pr-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }}
+                    className="p-1 text-gray-300 hover:text-blue-500 transition"
+                    title="Редактировать профиль"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }}
+                    className="p-1 text-gray-300 hover:text-red-500 transition"
+                    title="Удалить питомца"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             ))}
             {pets.length === 0 && <p className="text-sm text-gray-400">Пока нет питомцев</p>}
           </div>
 
-          {/* Форма добавления питомца */}
-          <form onSubmit={addPet} className="space-y-2 border-t pt-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Добавить питомца</p>
+          {/* Форма добавления/редактирования питомца */}
+          <form onSubmit={savePet} className="space-y-2 border-t pt-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">
+              {editingPetId ? 'Редактировать профиль' : 'Добавить питомца'}
+            </p>
             <input
               type="text"
               placeholder="Имя питомца"
@@ -352,7 +399,9 @@ export default function Home() {
               className="w-full px-3 py-2 border rounded-lg text-sm text-gray-500 focus:ring-2 focus:ring-blue-200 outline-none"
             />
             <div className="text-sm">
-              <label className="block text-gray-500 mb-1 text-xs">Фото питомца</label>
+              <label className="block text-gray-500 mb-1 text-xs">
+                {editingPetId ? 'Новое фото (если не выбрано, останется старое)' : 'Фото питомца'}
+              </label>
               <input
                 type="file"
                 accept="image/*"
@@ -360,13 +409,28 @@ export default function Home() {
                 className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
             </div>
-            <button
-              type="submit"
-              disabled={savingPet}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-60 mt-2"
-            >
-              {savingPet ? 'Загрузка...' : '+ Добавить питомца'}
-            </button>
+            
+            <div className="flex gap-2 mt-2">
+              <button
+                type="submit"
+                disabled={savingPet}
+                className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${
+                  editingPetId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {savingPet ? 'Сохранение...' : editingPetId ? 'Обновить питомца' : '+ Добавить питомца'}
+              </button>
+              
+              {editingPetId && (
+                <button
+                  type="button"
+                  onClick={resetPetForm}
+                  className="px-4 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition"
+                >
+                  Отмена
+                </button>
+              )}
+            </div>
           </form>
         </section>
 
@@ -409,7 +473,7 @@ export default function Home() {
 
               {(recordType === 'vaccine' || recordType === 'medication') && (
                 <div className="bg-orange-50 p-2 rounded-lg border border-orange-100">
-                  <label className="block text-xs text-orange-600 font-medium mb-1">Напоминание (следующая дата)</label>
+                  <label className="block text-xs text-orange-600 font-medium mb-1">Напоминание</label>
                   <input
                     type="date"
                     value={recordNextDate}
@@ -434,13 +498,13 @@ export default function Home() {
                     editingRecordId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'
                   }`}
                 >
-                  {savingRecord ? 'Сохраняем...' : editingRecordId ? 'Обновить' : 'Сохранить'}
+                  {savingRecord ? 'Сохраняем...' : editingRecordId ? 'Обновить запись' : 'Сохранить'}
                 </button>
                 
                 {editingRecordId && (
                   <button
                     type="button"
-                    onClick={resetForm}
+                    onClick={resetRecordForm}
                     className="px-4 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
                   >
                     Отмена
@@ -458,7 +522,7 @@ export default function Home() {
           
           <div className="flex justify-between items-center mb-4 print:mb-8">
             <h2 className="font-semibold text-gray-700">
-              {selectedPet ? `История здоровья: ${selectedPet.name}` : 'Лента здоровья'}
+              {selectedPet ? `История: ${selectedPet.name}` : 'Лента здоровья'}
             </h2>
             
             {selectedPet && records.length > 0 && (
@@ -471,7 +535,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Блок профиля для печати */}
           <div className="hidden print:block mb-6 border-b pb-4">
             <div className="flex items-center gap-4 mb-2">
               {selectedPet?.avatar_url && <img src={selectedPet.avatar_url} className="w-16 h-16 rounded-full object-cover" />}
@@ -501,7 +564,7 @@ export default function Home() {
                         <span className="text-xs text-gray-400">{record.record_date}</span>
                         
                         <div className="flex gap-1 print:hidden">
-                          <button onClick={() => startEditing(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
+                          <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
                           <button onClick={() => deleteRecord(record.id)} className="text-gray-300 hover:text-red-500 p-1">×</button>
                         </div>
                       </div>
@@ -510,7 +573,6 @@ export default function Home() {
                       {record.value}{record.type === 'weight' ? ' кг' : ''}
                     </p>
                     
-                    {/* Блок напоминания */}
                     {reminder && (
                       <div className={`mt-2 inline-block px-2 py-1 rounded text-xs font-medium ${reminder.color}`}>
                         Следующий раз: {reminder.text}
@@ -546,7 +608,7 @@ function AuthForm() {
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) toast.error(error.message)
-      else toast.success('Готово! Проверьте почту, если включено подтверждение.')
+      else toast.success('Готово! Проверьте почту.')
     }
     setBusy(false)
   }
