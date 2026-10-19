@@ -14,10 +14,11 @@ export async function GET() {
     targetDate.setDate(targetDate.getDate() + 3)
     const targetDateString = targetDate.toISOString().split('T')[0]
 
+    // Ищем записи
     const { data: records, error } = await supabase
       .from('health_records')
       .select(`
-        id, value, next_date,
+        id, value, next_date, reminder_sent,
         pets (name, user_id)
       `)
       .eq('next_date', targetDateString)
@@ -25,6 +26,7 @@ export async function GET() {
 
     if (error) throw error
 
+    // Отправляем письма
     if (records && records.length > 0) {
       for (const record of records) {
         const { data: { user } } = await supabase.auth.admin.getUserById(record.pets[0].user_id)
@@ -42,18 +44,21 @@ export async function GET() {
                   <b>Событие:</b> ${record.value}<br>
                   <b>Дата:</b> ${record.next_date}
                 </div>
-                <p>Не забудьте подготовиться или записаться к ветеринару!</p>
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL}" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px;">Открыть PawLog</a>
               </div>
             `
           })
-
           await supabase.from('health_records').update({ reminder_sent: true }).eq('id', record.id)
         }
       }
     }
 
-    return NextResponse.json({ success: true, processed: records?.length || 0 })
+    // ВЫВОДИМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ
+    return NextResponse.json({ 
+      success: true, 
+      processed: records?.length || 0, 
+      looking_for_date: targetDateString,
+      found_records: records || [] 
+    })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
