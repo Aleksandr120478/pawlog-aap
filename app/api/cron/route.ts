@@ -25,13 +25,21 @@ export async function GET() {
     if (records && records.length > 0) {
       const record = records[0]
       
-      // ИСПРАВЛЕНИЕ ЗДЕСЬ: обращаемся к pets как к объекту, а не массиву
-      const pet = record.pets as any
-      if (!pet) throw new Error('Питомец не найден')
+      // Защита от любых форматов данных: и массив, и объект
+      const rawPet = record.pets as any
+      const pet = Array.isArray(rawPet) ? rawPet[0] : rawPet
+      
+      if (!pet) {
+        throw new Error('Связь с питомцем не найдена в базе данных')
+      }
 
-      const { data: { user } } = await supabase.auth.admin.getUserById(pet.user_id)
-
+      // Получаем email пользователя
+      const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(pet.user_id)
+      
+      if (userError) throw userError
+      
       if (user?.email) {
+        // Отправляем письмо
         await resend.emails.send({
           from: 'PawLog <onboarding@resend.dev>',
           to: user.email,
@@ -39,12 +47,14 @@ export async function GET() {
           html: `<h2>Привет! 🐾</h2><p>У питомца <b>${pet.name}</b> запланировано: ${record.value} на ${record.next_date}</p>`
         })
         
+        // Помечаем, что письмо ушло
         await supabase.from('health_records').update({ reminder_sent: true }).eq('id', record.id)
-        return NextResponse.json({ success: true, sent: 1, message: 'Письмо отправлено!' })
+        
+        return NextResponse.json({ success: true, sent: 1, message: 'Письмо успешно отправлено!' })
       }
     }
 
-    return NextResponse.json({ success: true, sent: 0, message: 'Нет записей для отправки' })
+    return NextResponse.json({ success: true, sent: 0, message: 'Нет записей, требующих отправки' })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
