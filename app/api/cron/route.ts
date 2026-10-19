@@ -10,6 +10,7 @@ const supabase = createClient(
 
 export async function GET() {
   try {
+    // 1. Ищем записи, где есть напоминание и письмо еще не отправлено (false или NULL)
     const { data: records, error } = await supabase
       .from('health_records')
       .select(`
@@ -17,44 +18,50 @@ export async function GET() {
         pets (name, user_id)
       `)
       .not('next_date', 'is', null)
-      .eq('reminder_sent', false)
+      .or('reminder_sent.eq.false,reminder_sent.is.null')
       .limit(1)
 
     if (error) throw error
 
-    if (records && records.length > 0) {
-      const record = records[0]
-      
-      // Защита от любых форматов данных: и массив, и объект
-      const rawPet = record.pets as any
-      const pet = Array.isArray(rawPet) ? rawPet[0] : rawPet
-      
-      if (!pet) {
-        throw new Error('Связь с питомцем не найдена в базе данных')
-      }
-
-      // Получаем email пользователя
-      const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(pet.user_id)
-      
-      if (userError) throw userError
-      
-      if (user?.email) {
-        // Отправляем письмо
-        await resend.emails.send({
-          from: 'PawLog <onboarding@resend.dev>',
-          to: user.email,
-          subject: `Напоминание: ${pet.name} ждет процедура!`,
-          html: `<h2>Привет! 🐾</h2><p>У питомца <b>${pet.name}</b> запланировано: ${record.value} на ${record.next_date}</p>`
-        })
-        
-        // Помечаем, что письмо ушло
-        await supabase.from('health_records').update({ reminder_sent: true }).eq('id', record.id)
-        
-        return NextResponse.json({ success: true, sent: 1, message: 'Письмо успешно отправлено!' })
-      }
+    if (!records || records.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'В базе нет записей с заполненным напоминанием, или они уже отправлены (reminder_sent = true)' 
+      })
     }
 
-    return NextResponse.json({ success: true, sent: 0, message: 'Нет записей, требующих отправки' })
+    const record = records[0]
+    
+    // Безопасно достаем питомца
+    const rawPet = record.pets as any
+    const pet = Array.isArray(rawPet) ? rawPet[0] : rawPet
+    
+    if (!pet) throw new Error('Питомец не найден для этой записи')
+
+    // Получаем email
+    const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(pet.user_id)
+    if (userError) throw userError
+    if (!user?.email) throw new Error('У пользователя нет email')
+
+    // 2. Отправляем письмо и СМОТРИМ, что ответит Resend
+    const emailResponse = await resend.emails.send({
+      from: 'PawLog <onboarding@resend.dev>',
+      to: user.email,
+      subject: `Напоминание: ${pet.name}`,
+      html: `<p>Привет! Тестовое напоминание для ${pet.name} на ${record.next_date}</p>`
+    })
+
+    // 3. Отмечаем как отправленное
+    await supabase.from('health_records').update({ reminder_sent: true }).eq('id', record.id)
+
+    // Выводим всё на экран
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Скрипт дошел до конца!',
+      email_sent_to: user.email,
+      resend_response: emailResponse, // <-- Здесь будет ответ от почты (ошибка или успех)
+      record_id: record.id
+    })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
