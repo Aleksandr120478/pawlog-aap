@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const response = await resend.emails.send({
       from: 'PawLog <onboarding@resend.dev>',
-      to: 'anapa4867754@yandex.ru',
+      to: '6222285@mail.ru',
       subject: 'Тест PawLog',
       html: '<h1>Ура! Почта работает!</h1>'
     })
