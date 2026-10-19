@@ -13,7 +13,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-hot-toast": "^2.4.1",
-    "recharts":"^2.12.7"
+    "recharts":"^2.12.7",
+    "resebd":"^3.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",
