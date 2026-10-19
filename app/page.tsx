@@ -34,9 +34,12 @@ export default function Home() {
   const [savingPet, setSavingPet] = useState(false)
   const [savingRecord, setSavingRecord] = useState(false)
 
+  // Стейт для формы
   const [petName, setPetName] = useState('')
   const [petSpecies, setPetSpecies] = useState('Собака')
 
+  // Стейт для записей и редактирования
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [recordType, setRecordType] = useState('weight')
   const [recordValue, setRecordValue] = useState('')
   const [recordDate, setRecordDate] = useState(todayLocal())
@@ -114,7 +117,25 @@ export default function Home() {
     setPets(prev => prev.filter(p => p.id !== id))
   }
 
-  async function addRecord(e: React.FormEvent) {
+  // Функция для кнопки "Редактировать"
+  function startEditing(record: HealthRecord) {
+    setEditingRecordId(record.id)
+    setRecordType(record.type)
+    setRecordValue(record.value)
+    setRecordDate(record.record_date)
+    setRecordNote(record.note || '')
+  }
+
+  // Очистка формы после сохранения или отмены
+  function resetForm() {
+    setEditingRecordId(null)
+    setRecordType('weight')
+    setRecordValue('')
+    setRecordDate(todayLocal())
+    setRecordNote('')
+  }
+
+  async function saveRecord(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedPetId) return toast.error('Выберите питомца')
     const trimmed = recordValue.trim()
@@ -122,26 +143,48 @@ export default function Home() {
     if (recordType === 'weight' && !/^\d+(\.\d+)?$/.test(trimmed)) {
       return toast.error('Вес должен быть числом, например 5.2')
     }
+    
     setSavingRecord(true)
-    const { error } = await supabase.from('health_records').insert({
-      pet_id: selectedPetId,
-      type: recordType,
-      value: trimmed,
-      note: recordNote.trim() || null,
-      record_date: recordDate,
-    })
+    
+    // Если есть editingRecordId, значит мы ОБНОВЛЯЕМ, иначе СОЗДАЕМ
+    if (editingRecordId) {
+      const { error } = await supabase.from('health_records').update({
+        type: recordType,
+        value: trimmed,
+        note: recordNote.trim() || null,
+        record_date: recordDate,
+      }).eq('id', editingRecordId)
+      
+      if (error) toast.error(error.message)
+      else {
+        toast.success('Запись обновлена!')
+        fetchRecords(selectedPetId)
+        resetForm()
+      }
+    } else {
+      const { error } = await supabase.from('health_records').insert({
+        pet_id: selectedPetId,
+        type: recordType,
+        value: trimmed,
+        note: recordNote.trim() || null,
+        record_date: recordDate,
+      })
+      
+      if (error) toast.error(error.message)
+      else {
+        toast.success('Запись добавлена!')
+        fetchRecords(selectedPetId)
+        resetForm()
+      }
+    }
     setSavingRecord(false)
-    if (error) return toast.error(error.message)
-    toast.success('Запись добавлена!')
-    setRecordValue('')
-    setRecordNote('')
-    fetchRecords(selectedPetId)
   }
 
   async function deleteRecord(id: string) {
     const { error } = await supabase.from('health_records').delete().eq('id', id)
     if (error) return toast.error(error.message)
     setRecords(prev => prev.filter(r => r.id !== id))
+    if (editingRecordId === id) resetForm() // Сбрасываем форму, если удалили запись, которую редактировали
   }
 
   async function handleLogout() {
@@ -149,6 +192,7 @@ export default function Home() {
     setPets([])
     setSelectedPetId(null)
     setRecords([])
+    resetForm()
   }
 
   if (loading) {
@@ -168,8 +212,9 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+    <div className="min-h-screen bg-gray-50 print:bg-white">
+      {/* Хедер скрывается при печати */}
+      <header className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
         <h1 className="text-xl font-bold text-gray-800">🐾 PawLog</h1>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-400 hidden sm:inline">{session.user.email}</span>
@@ -177,8 +222,11 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+      {/* При печати делаем одну колонку на всю ширину */}
+      <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
+        
+        {/* Левая колонка: Питомцы (скрывается при печати) */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 print:hidden">
           <h2 className="font-semibold text-gray-700 mb-4">Мои питомцы</h2>
           <div className="space-y-2 mb-4">
             {pets.map(pet => (
@@ -234,10 +282,13 @@ export default function Home() {
           </form>
         </section>
 
-        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-          <h2 className="font-semibold text-gray-700 mb-4">Новая запись</h2>
+        {/* Средняя колонка: Форма записи (скрывается при печати) */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 print:hidden">
+          <h2 className="font-semibold text-gray-700 mb-4">
+            {editingRecordId ? 'Редактировать запись' : 'Новая запись'}
+          </h2>
           {selectedPet ? (
-            <form onSubmit={addRecord} className="space-y-3">
+            <form onSubmit={saveRecord} className="space-y-3">
               <p className="text-sm text-gray-500 mb-2">
                 Для: <span className="font-medium text-gray-700">{selectedPet.name}</span>
               </p>
@@ -269,39 +320,89 @@ export default function Home() {
                 onChange={e => setRecordNote(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-200 outline-none resize-none h-20"
               />
-              <button
-                type="submit"
-                disabled={savingRecord}
-                className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-60"
-              >
-                {savingRecord ? 'Сохраняем...' : 'Сохранить запись'}
-              </button>
+              
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={savingRecord}
+                  className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${
+                    editingRecordId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {savingRecord ? 'Сохраняем...' : editingRecordId ? 'Обновить запись' : 'Сохранить запись'}
+                </button>
+                
+                {editingRecordId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition"
+                  >
+                    Отмена
+                  </button>
+                )}
+              </div>
             </form>
           ) : (
             <p className="text-sm text-gray-400">Сначала добавьте или выберите питомца</p>
           )}
         </section>
 
-        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-          <h2 className="font-semibold text-gray-700 mb-4">Лента здоровья</h2>
+        {/* Правая колонка: Лента (при печати занимает весь лист) */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 print:border-none print:shadow-none print:p-0">
+          
+          <div className="flex justify-between items-center mb-4 print:mb-8">
+            <h2 className="font-semibold text-gray-700">
+              {selectedPet ? `История здоровья: ${selectedPet.name}` : 'Лента здоровья'}
+            </h2>
+            
+            {/* Кнопка печати (скрывается при печати) */}
+            {selectedPet && records.length > 0 && (
+              <button
+                onClick={() => window.print()}
+                className="print:hidden text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition flex items-center gap-1"
+                title="Сохранить в PDF или распечатать"
+              >
+                🖨️ Печать / PDF
+              </button>
+            )}
+          </div>
+
+          {/* Текст, который появится ТОЛЬКО на распечатанном листе */}
+          <div className="hidden print:block mb-6 text-sm text-gray-500">
+            <p>Дата отчета: {new Date().toLocaleDateString('ru-RU')}</p>
+            <p>Вид: {selectedPet?.species}</p>
+          </div>
+
           {selectedPet ? (
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
               {records.length === 0 && <p className="text-sm text-gray-400">Пока нет записей</p>}
               {records.map(record => (
-                <div key={record.id} className="border-l-4 border-blue-200 pl-3 py-1">
+                <div key={record.id} className="border-l-4 border-blue-200 pl-3 py-1 print:border-gray-400 print:break-inside-avoid">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium uppercase text-blue-500">
+                    <span className="text-xs font-medium uppercase text-blue-500 print:text-gray-800">
                       {RECORD_LABELS[record.type] || record.type}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400">{record.record_date}</span>
-                      <button
-                        onClick={() => deleteRecord(record.id)}
-                        className="text-gray-300 hover:text-red-500 transition"
-                        aria-label="Удалить запись"
-                      >
-                        ×
-                      </button>
+                      
+                      {/* Кнопки управления (скрываются при печати) */}
+                      <div className="flex gap-1 print:hidden">
+                        <button
+                          onClick={() => startEditing(record)}
+                          className="text-gray-300 hover:text-blue-500 transition p-1"
+                          title="Редактировать"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteRecord(record.id)}
+                          className="text-gray-300 hover:text-red-500 transition p-1"
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <p className="text-sm font-medium text-gray-800">
