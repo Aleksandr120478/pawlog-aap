@@ -10,55 +10,38 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-    const targetDate = new Date()
-    targetDate.setDate(targetDate.getDate() + 3)
-    const targetDateString = targetDate.toISOString().split('T')[0]
-
-    // Ищем записи
+    // Ищем ЛЮБУЮ запись, где есть напоминание, и письмо еще не отправлено
     const { data: records, error } = await supabase
       .from('health_records')
       .select(`
         id, value, next_date, reminder_sent,
         pets (name, user_id)
       `)
-      .eq('next_date', targetDateString)
-      .eq('reminder_sent', false)
+      .not('next_date', 'is', null) // Главное, чтобы дата была заполнена
+      .eq('reminder_sent', false)   // И чтобы письмо еще не уходило
+      .limit(1) // Берем только одну для теста
 
     if (error) throw error
 
-    // Отправляем письма
+    // Если нашли запись — отправляем письмо
     if (records && records.length > 0) {
-      for (const record of records) {
-        const { data: { user } } = await supabase.auth.admin.getUserById(record.pets[0].user_id)
+      const record = records[0]
+      const { data: { user } } = await supabase.auth.admin.getUserById(record.pets[0].user_id)
 
-        if (user?.email) {
-          await resend.emails.send({
-            from: 'PawLog <onboarding@resend.dev>',
-            to: user.email,
-            subject: `Напоминание: ${record.pets[0].name} ждет процедура!`,
-            html: `
-              <div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto;">
-                <h2>Привет! 🐾</h2>
-                <p>Напоминаем, что через 3 дня (${record.next_date}) у питомца <b>${record.pets[0].name}</b> запланировано событие:</p>
-                <div style="background-color: #f3f4f6; padding: 15px; border-radius: 10px; margin: 20px 0;">
-                  <b>Событие:</b> ${record.value}<br>
-                  <b>Дата:</b> ${record.next_date}
-                </div>
-              </div>
-            `
-          })
-          await supabase.from('health_records').update({ reminder_sent: true }).eq('id', record.id)
-        }
+      if (user?.email) {
+        await resend.emails.send({
+          from: 'PawLog <onboarding@resend.dev>',
+          to: user.email,
+          subject: `Напоминание: ${record.pets[0].name} ждет процедура!`,
+          html: `<h2>Привет! 🐾</h2><p>У питомца <b>${record.pets[0].name}</b> запланировано: ${record.value} на ${record.next_date}</p>`
+        })
+        
+        // Помечаем, что письмо отправлено
+        await supabase.from('health_records').update({ reminder_sent: true }).eq('id', record.id)
       }
     }
 
-    // ВЫВОДИМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ
-    return NextResponse.json({ 
-      success: true, 
-      processed: records?.length || 0, 
-      looking_for_date: targetDateString,
-      found_records: records || [] 
-    })
+    return NextResponse.json({ success: true, sent: records?.length || 0 })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
