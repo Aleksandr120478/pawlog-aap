@@ -49,7 +49,7 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-// Компонент для полноэкранного календаря
+// Полноэкранный календарь
 function CalendarModal({ 
   records, 
   selectedDate, 
@@ -131,7 +131,6 @@ function CalendarModal({
     <div className="fixed inset-0 z-[100] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         
-        {/* Шапка модалки */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">Календарь событий</h2>
           <button onClick={onClose} className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition shadow-sm font-medium">
@@ -139,10 +138,7 @@ function CalendarModal({
           </button>
         </div>
 
-        {/* Основной блок */}
         <div className="flex flex-col xl:flex-row gap-6">
-          
-          {/* Сетка календаря (занимает больше места) */}
           <div className="flex-1 bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between items-center mb-6">
               <button onClick={prevMonth} className="p-2 md:px-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition font-medium text-sm">← Пред. месяц</button>
@@ -158,7 +154,6 @@ function CalendarModal({
             </div>
           </div>
 
-          {/* Боковая панель с событиями дня */}
           <div className="w-full xl:w-80 shrink-0 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
             <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1">
               {selectedDate || 'Выберите день'}
@@ -211,14 +206,12 @@ export default function Home() {
   const [savingRecord, setSavingRecord] = useState(false)
   const [isDark, setIsDark] = useState(false)
   
-  // Управление вкладками (Список / Документы)
   const [dashboardTab, setDashboardTab] = useState<'list' | 'docs'>('list')
   
-  // Управление модалками
   const [showPremiumModal, setShowPremiumModal] = useState(false) 
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [showCalendarModal, setShowCalendarModal] = useState(false) // Календарь
+  const [showCalendarModal, setShowCalendarModal] = useState(false)
   
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(todayLocal())
 
@@ -442,7 +435,7 @@ export default function Home() {
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
-      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
       const { error: dbError } = await supabase.from('pet_documents').insert({ pet_id: selectedPetId, name: file.name, url: data.publicUrl })
       if (dbError) throw dbError
       toast.success('Документ загружен!', { id: toastId })
@@ -552,7 +545,6 @@ export default function Home() {
     setRecordDate(todayLocal()); setRecordNote(''); setRecordNextDate('')
   }
 
-  // Переход из календаря обратно в форму
   function handleAddFromCalendar(date: string) {
     setEditingRecordId(null)
     setRecordType('weight')
@@ -560,14 +552,14 @@ export default function Home() {
     setRecordNote('')
     setRecordNextDate('')
     setRecordDate(date)
-    setShowCalendarModal(false) // Закрываем календарь
+    setShowCalendarModal(false)
     setDashboardTab('list')
     
     setTimeout(() => {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
     }, 100)
     
-    toast.success(`Дата подставлена: ${date}. Заполните форму!`)
+    toast.success(`Дата подставлена: ${date}`)
   }
 
   async function saveRecord(e: React.FormEvent) {
@@ -656,7 +648,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
       
-      {/* ПОЛНОЭКРАННЫЙ КАЛЕНДАРЬ */}
       {showCalendarModal && (
         <CalendarModal 
           records={records}
@@ -674,7 +665,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* ОСТАЛЬНЫЕ МОДАЛКИ (Premium, Settings, Share) */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-sm w-full p-6 md:p-8 border border-gray-100 dark:border-gray-700 relative">
@@ -764,7 +754,6 @@ export default function Home() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
         
-        {/* ЛЕВАЯ КОЛОНКА (Питомцы) */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">Мои питомцы</h2>
@@ -841,7 +830,6 @@ export default function Home() {
           </form>
         </section>
 
-        {/* СРЕДНЯЯ КОЛОНКА (Форма записи) */}
         <section id="record-form" className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">{editingRecordId ? 'Редактировать запись' : 'Новая запись'}</h2>
@@ -884,7 +872,6 @@ export default function Home() {
           ) : <p className="text-sm text-gray-400 dark:text-gray-500">Сначала добавьте питомца</p>}
         </section>
 
-        {/* ПРАВАЯ КОЛОНКА (Лента/Документы) */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:border-none print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 print:mb-8">
             <div className="flex items-center gap-2 flex-wrap">
@@ -895,7 +882,6 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Кнопка вызова Календаря */}
             {selectedPet && (
               <button onClick={() => setShowCalendarModal(true)} className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition flex items-center gap-1 print:hidden">
                 📅 Открыть календарь
