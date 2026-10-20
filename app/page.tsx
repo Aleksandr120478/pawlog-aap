@@ -8,6 +8,7 @@ type Pet = {
   id: string; name: string; species: string | null;
   breed: string | null; birth_date: string | null; avatar_url: string | null;
   allergies: string | null; chronic_diseases: string | null; food: string | null; vet_contact: string | null;
+  user_id: string;
 }
 type HealthRecord = {
   id: string; pet_id: string; type: string; value: string;
@@ -127,14 +128,17 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
   
   const [showPremiumModal, setShowPremiumModal] = useState(false) 
-  const [showSettingsModal, setShowSettingsModal] = useState(false) // Окно настроек
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareEmail, setShareEmail] = useState('')
+  const [sharingPetId, setSharingPetId] = useState<string | null>(null)
+  
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
   
   const [isPremium, setIsPremium] = useState(false)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
 
-  // Стейт для смены пароля
   const [newPassword, setNewPassword] = useState('')
   const [updatingPassword, setUpdatingPassword] = useState(false)
 
@@ -161,8 +165,10 @@ export default function Home() {
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
+  
+  // Считаем лимит ТОЛЬКО для собственных питомцев
+  const ownedPetsCount = pets.filter(p => p.user_id === session?.user?.id).length
 
-  // Логика для виджета "Срочно" (события в ближайшие 7 дней)
   const upcomingEvents = records.filter(r => {
     if (!r.next_date) return false;
     const today = new Date(todayLocal()).getTime();
@@ -214,8 +220,12 @@ export default function Home() {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
     
     if (error && error.code === 'PGRST116') {
-      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId, timezone: tz }).select().single()
       if (!insertError) data = newData
+    } else if (data && !data.timezone) {
+       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+       await supabase.from('user_status').update({ timezone: tz }).eq('user_id', userId)
     }
 
     if (data) {
@@ -260,6 +270,39 @@ export default function Home() {
     }
   }, [selectedPetId, fetchRecords, fetchDocuments])
 
+  async function handleShare() {
+    const cleanEmail = shareEmail.trim().toLowerCase();
+    if (!cleanEmail || !sharingPetId) return toast.error('Введите email')
+    if (cleanEmail === session.user.email.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой')
+    
+    const toastId = toast.loading('Отправка приглашения...')
+    
+    const { data: existing } = await supabase.from('pet_shares').select('id').eq('pet_id', sharingPetId).eq('shared_with_email', cleanEmail).single()
+    
+    if (existing) {
+      return toast.error('Этот пользователь уже имеет доступ', { id: toastId })
+    }
+
+    const { error } = await supabase.from('pet_shares').insert({
+      pet_id: sharingPetId,
+      shared_with_email: cleanEmail
+    })
+    
+    if (error) {
+      toast.error(error.message, { id: toastId })
+    } else {
+      toast.success('Доступ успешно предоставлен!', { id: toastId })
+      setShowShareModal(false)
+      setShareEmail('')
+    }
+  }
+
+  function openShareModal(petId: string) {
+    setSharingPetId(petId)
+    setShareEmail('')
+    setShowShareModal(true)
+  }
+
   async function updatePassword(e: React.FormEvent) {
     e.preventDefault()
     if (!newPassword || newPassword.length < 6) return toast.error('Пароль должен быть минимум 6 символов')
@@ -281,12 +324,10 @@ export default function Home() {
       r.record_date,
       RECORD_LABELS[r.type] || r.type,
       r.value,
-      `"${(r.note || '').replace(/"/g, '""')}"`, // Экранируем кавычки в заметках
+      `"${(r.note || '').replace(/"/g, '""')}"`,
       r.next_date || ''
     ]);
-    
     const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    // Добавляем BOM для корректного отображения кириллицы в Excel
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -300,17 +341,13 @@ export default function Home() {
   async function startFreeTrial() {
     if (!session) return
     const toastId = toast.loading('Активация Premium...')
-    
     const trialEnd = new Date()
     trialEnd.setDate(trialEnd.getDate() + 7)
-
     const { error } = await supabase.from('user_status').update({
       trial_ends_at: trialEnd.toISOString()
     }).eq('user_id', session.user.id)
-
-    if (error) {
-      toast.error(error.message, { id: toastId })
-    } else {
+    if (error) toast.error(error.message, { id: toastId })
+    else {
       toast.success('Пробный период на 7 дней активирован!', { id: toastId })
       setShowPremiumModal(false)
       fetchUserStatus(session.user.id)
@@ -322,7 +359,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -335,14 +372,11 @@ export default function Home() {
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
-      
-      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
-      
+      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
       const { error: dbError } = await supabase.from('pet_documents').insert({
         pet_id: selectedPetId, name: file.name, url: data.publicUrl
       })
       if (dbError) throw dbError
-      
       toast.success('Документ загружен!', { id: toastId })
       fetchDocuments(selectedPetId)
     } catch (error: any) {
@@ -376,7 +410,7 @@ export default function Home() {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
     
-    if (!hasPremiumAccess && !editingPetId && pets.length >= 1) {
+    if (!hasPremiumAccess && !editingPetId && ownedPetsCount >= 1) {
       setShowPremiumModal(true)
       return
     }
@@ -400,8 +434,15 @@ export default function Home() {
       else { toast.success('Профиль обновлен!'); fetchPets(editingPetId); resetPetForm() }
     } else {
       const { data, error } = await supabase.from('pets').insert({ ...petData, user_id: session.user.id }).select().single()
-      if (error) toast.error(error.message)
-      else { toast.success('Питомец добавлен!'); fetchPets(data.id); resetPetForm() }
+      if (error) {
+        if (error.message.includes('LimitReached')) {
+          setShowPremiumModal(true)
+        } else {
+          toast.error(error.message)
+        }
+      } else {
+        toast.success('Питомец добавлен!'); fetchPets(data.id); resetPetForm()
+      }
     }
     setSavingPet(false)
   }
@@ -458,11 +499,9 @@ export default function Home() {
     if (!selectedPetId) return toast.error('Выберите питомца')
     const trimmed = recordValue.trim()
     if (!trimmed) return toast.error('Введите значение')
-    
     if ((recordType === 'weight' || recordType === 'expense') && !/^\d+(\.\d+)?$/.test(trimmed)) {
       return toast.error('Введите число, например 5.2 или 1500')
     }
-
     if (!hasPremiumAccess && !editingRecordId && records.length >= 10) {
       setShowPremiumModal(true)
       return
@@ -477,8 +516,15 @@ export default function Home() {
       else { toast.success('Запись обновлена!'); fetchRecords(selectedPetId); resetRecordForm() }
     } else {
       const { error } = await supabase.from('health_records').insert({ ...recordData, pet_id: selectedPetId })
-      if (error) toast.error(error.message)
-      else { toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm() }
+      if (error) {
+        if (error.message.includes('LimitReached')) {
+          setShowPremiumModal(true)
+        } else {
+          toast.error(error.message)
+        }
+      } else {
+        toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm()
+      }
     }
     setSavingRecord(false)
   }
@@ -548,7 +594,29 @@ export default function Home() {
         </div>
       )}
 
-      {/* SETTINGS MODAL */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-sm w-full p-6 md:p-8 border border-gray-100 dark:border-gray-700 relative">
+            <button onClick={() => setShowShareModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Поделиться доступом</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Введите email члена семьи, чтобы он мог видеть и редактировать дневник этого питомца.</p>
+            <form onSubmit={(e) => { e.preventDefault(); handleShare(); }} className="space-y-4">
+              <input 
+                type="email" 
+                placeholder="Email (например, wife@mail.ru)" 
+                value={shareEmail} 
+                onChange={e => setShareEmail(e.target.value)} 
+                className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                required 
+              />
+              <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition">
+                Пригласить
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative p-6 md:p-8">
@@ -671,7 +739,6 @@ export default function Home() {
           )}
           <button onClick={toggleTheme} className="text-xl p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:scale-110 transition" title="Сменить тему">{isDark ? '☀️' : '🌙'}</button>
           
-          {/* Кнопка настроек (email) */}
           <span 
             onClick={() => setShowSettingsModal(true)} 
             className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline cursor-pointer hover:text-blue-500 transition underline decoration-dashed underline-offset-4"
@@ -691,7 +758,7 @@ export default function Home() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">Мои питомцы</h2>
             {!hasPremiumAccess && (
-              <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-full font-medium">Лимит: {pets.length}/1</span>
+              <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-full font-medium">Лимит: {ownedPetsCount}/1</span>
             )}
           </div>
           <div className="space-y-2 mb-4">
@@ -703,21 +770,32 @@ export default function Home() {
                 <div className="text-2xl animate-bounce mt-2">↓</div>
               </div>
             ) : (
-              pets.map(pet => (
-                <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
-                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden ml-3 shrink-0">
-                    {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" /> : <span className="text-lg">🐾</span>}
+              pets.map(pet => {
+                const isOwner = pet.user_id === session.user.id;
+                return (
+                  <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
+                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden ml-3 shrink-0">
+                      {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" /> : <span className="text-lg">🐾</span>}
+                    </div>
+                    <div className="flex-1 text-left px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-800 dark:text-gray-100 block">{pet.name}</span>
+                        {!isOwner && <span className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded">Совместный</span>}
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{pet.species} {pet.breed ? `• ${pet.breed}` : ''} {pet.birth_date ? `• ${calculateAge(pet.birth_date)}` : ''}</span>
+                    </div>
+                    <div className="flex gap-1 pr-2">
+                      {isOwner && (
+                        <>
+                          <button onClick={(e) => { e.stopPropagation(); openShareModal(pet.id); }} className="p-1 text-gray-300 hover:text-purple-500 transition" title="Поделиться">🔗</button>
+                          <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-blue-500 transition" title="Редактировать">✏️</button>
+                          <button onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }} className="p-1 text-gray-300 hover:text-red-500 transition" title="Удалить">×</button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 text-left px-3 py-2">
-                    <span className="font-medium text-gray-800 dark:text-gray-100 block">{pet.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{pet.species} {pet.breed ? `• ${pet.breed}` : ''} {pet.birth_date ? `• ${calculateAge(pet.birth_date)}` : ''}</span>
-                  </div>
-                  <div className="flex gap-1 pr-2">
-                    <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-blue-500 transition" title="Редактировать">✏️</button>
-                    <button onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }} className="p-1 text-gray-300 hover:text-red-500 transition" title="Удалить">×</button>
-                  </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
 
@@ -856,7 +934,6 @@ export default function Home() {
             <>
               {viewMode === 'list' && (
                 <>
-                  {/* ВИДЖЕТ СРОЧНЫЕ СОБЫТИЯ */}
                   {upcomingEvents.length > 0 && (
                     <div className="mb-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 print:hidden">
                       <h3 className="text-sm font-bold text-orange-800 dark:text-orange-300 mb-2 flex items-center gap-2">
