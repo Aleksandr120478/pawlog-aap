@@ -123,7 +123,10 @@ export default function Home() {
   const [savingRecord, setSavingRecord] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
-  const [showPremiumModal, setShowPremiumModal] = useState(false) // Стейт для окна Premium
+  
+  // Стейт для окна Premium
+  const [showPremiumModal, setShowPremiumModal] = useState(false) 
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
 
   // Форма питомца
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
@@ -149,8 +152,6 @@ export default function Home() {
   const [recordNextDate, setRecordNextDate] = useState('')
 
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
-
-  // Общая сумма расходов
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
 
   useEffect(() => {
@@ -274,7 +275,6 @@ export default function Home() {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
     
-    // Вызов Premium-окна при лимите
     if (!editingPetId && pets.length >= 1) {
       setShowPremiumModal(true)
       return
@@ -315,18 +315,12 @@ export default function Home() {
     if (editingPetId === id) resetPetForm()
   }
 
-  // Добавление шаблонов прививок
   async function addVaccineTemplates() {
     if (!selectedPet) return
-    
     let templates = []
-    if (selectedPet.species === 'Собака') {
-      templates = ['Бешенство', 'Чума плотоядных', 'Парвовирусный энтерит', 'Лептоспироз']
-    } else if (selectedPet.species === 'Кошка') {
-      templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
-    } else {
-      return toast.error('Шаблоны доступны только для собак и кошек')
-    }
+    if (selectedPet.species === 'Собака') templates = ['Бешенство', 'Чума плотоядных', 'Парвовирусный энтерит', 'Лептоспироз']
+    else if (selectedPet.species === 'Кошка') templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
+    else return toast.error('Шаблоны доступны только для собак и кошек')
 
     if (records.length + templates.length > 10) {
       setShowPremiumModal(true)
@@ -334,8 +328,6 @@ export default function Home() {
     }
 
     const toastId = toast.loading('Добавляем прививки...')
-    
-    // Дата на год вперед для следующей ревакцинации
     const nextDate = new Date()
     nextDate.setFullYear(nextDate.getFullYear() + 1)
     const nextDateString = nextDate.toISOString().split('T')[0]
@@ -351,12 +343,8 @@ export default function Home() {
     }))
 
     const { error } = await supabase.from('health_records').insert(recordsToInsert)
-    
     if (error) toast.error(error.message, { id: toastId })
-    else {
-      toast.success('График прививок добавлен!', { id: toastId })
-      fetchRecords(selectedPet.id)
-    }
+    else { toast.success('График прививок добавлен!', { id: toastId }); fetchRecords(selectedPet.id) }
   }
 
   function startEditingRecord(record: HealthRecord) {
@@ -375,7 +363,6 @@ export default function Home() {
     const trimmed = recordValue.trim()
     if (!trimmed) return toast.error('Введите значение')
     
-    // Проверка для чисел (вес и расходы)
     if ((recordType === 'weight' || recordType === 'expense') && !/^\d+(\.\d+)?$/.test(trimmed)) {
       return toast.error('Введите число, например 5.2 или 1500')
     }
@@ -461,23 +448,54 @@ export default function Home() {
       {showPremiumModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
-            <button onClick={() => setShowPremiumModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+            <button onClick={() => setShowPremiumModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
+            
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center text-white">
               <h2 className="text-3xl font-extrabold mb-2">PawLog Premium</h2>
               <p className="text-blue-100">Снимите все ограничения</p>
             </div>
-            <div className="p-8">
-              <ul className="space-y-3 mb-8 text-sm text-gray-700 dark:text-gray-300">
+            
+            <div className="p-6 md:p-8">
+              <ul className="space-y-3 mb-6 text-sm text-gray-700 dark:text-gray-300">
                 <li className="flex items-center gap-3">✨ <b>Безлимитные питомцы</b> (вместо 1)</li>
                 <li className="flex items-center gap-3">✨ <b>Безлимитные записи</b> (вместо 10)</li>
                 <li className="flex items-center gap-3">✨ Автоматические графики прививок</li>
                 <li className="flex items-center gap-3">✨ Приоритетная поддержка</li>
               </ul>
-              <div className="text-center mb-6">
-                <span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span>
-                <span className="text-gray-500 dark:text-gray-400"> / мес</span>
+
+              {/* Переключатель тарифов */}
+              <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-6">
+                <button 
+                  onClick={() => setBillingPeriod('monthly')} 
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${billingPeriod === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}
+                >
+                  Помесячно
+                </button>
+                <button 
+                  onClick={() => setBillingPeriod('annual')} 
+                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition flex items-center justify-center gap-1 ${billingPeriod === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}
+                >
+                  На год <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded">-33%</span>
+                </button>
               </div>
-              <button onClick={() => { toast.success('Здесь будет переход на оплату ЮKassa!'); setShowPremiumModal(false); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
+
+              <div className="text-center mb-6">
+                {billingPeriod === 'monthly' ? (
+                  <>
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span>
+                    <span className="text-gray-500 dark:text-gray-400"> / мес</span>
+                    <p className="text-xs text-gray-400 mt-1">Оплата каждый месяц</p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">1190 ₽</span>
+                    <span className="text-gray-500 dark:text-gray-400"> / год</span>
+                    <p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год (всего 99 ₽/мес)</p>
+                  </>
+                )}
+              </div>
+              
+              <button onClick={() => { toast.success(`Выбран тариф: ${billingPeriod === 'monthly' ? 'Помесячно' : 'На год'}`); setShowPremiumModal(false); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
                 Оформить подписку
               </button>
             </div>
@@ -567,7 +585,6 @@ export default function Home() {
                 <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/10</span>
               </div>
               
-              {/* Кнопка шаблонов */}
               {(selectedPet.species === 'Собака' || selectedPet.species === 'Кошка') && !editingRecordId && (
                 <button type="button" onClick={addVaccineTemplates} className="w-full bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-xs py-2 rounded-lg border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition flex items-center justify-center gap-1 font-medium">
                   🪄 Добавить график прививок
@@ -648,7 +665,6 @@ export default function Home() {
             <>
               {viewMode === 'list' && (
                 <>
-                  {/* Счетчик расходов */}
                   {totalExpenses > 0 && (
                     <div className="mb-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 p-3 rounded-xl flex justify-between items-center print:hidden">
                       <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Всего потрачено:</span>
