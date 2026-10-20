@@ -119,16 +119,13 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
   
-  // Стейт для Premium и Пробного периода
   const [showPremiumModal, setShowPremiumModal] = useState(false) 
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
   
-  // Стейт статуса пользователя (Премиум/Триал)
   const [isPremium, setIsPremium] = useState(false)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
 
-  // Форма питомца
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
   const [petName, setPetName] = useState('')
   const [petSpecies, setPetSpecies] = useState('Собака')
@@ -137,13 +134,11 @@ export default function Home() {
   const [petFile, setPetFile] = useState<File | null>(null)
   const [petAvatarUrl, setPetAvatarUrl] = useState<string | null>(null)
   
-  // Медицинская карта
   const [petAllergies, setPetAllergies] = useState('')
   const [petChronic, setPetChronic] = useState('')
   const [petFood, setPetFood] = useState('')
   const [petVet, setPetVet] = useState('')
 
-  // Форма записи
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [recordType, setRecordType] = useState('weight')
   const [recordValue, setRecordValue] = useState('')
@@ -153,8 +148,6 @@ export default function Home() {
 
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
-  
-  // Проверка, есть ли у пользователя доступ к премиуму (купил или активен триал)
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
 
   useEffect(() => {
@@ -196,11 +189,9 @@ export default function Home() {
     else setDocuments(data || [])
   }, [])
 
-  // Загрузка статуса пользователя
   const fetchUserStatus = useCallback(async (userId: string) => {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
     
-    // Если записи нет, создаем ее
     if (error && error.code === 'PGRST116') {
       const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
       if (!insertError) data = newData
@@ -248,13 +239,12 @@ export default function Home() {
     }
   }, [selectedPetId, fetchRecords, fetchDocuments])
 
-  // Активация пробного периода
   async function startFreeTrial() {
     if (!session) return
     const toastId = toast.loading('Активация Premium...')
     
     const trialEnd = new Date()
-    trialEnd.setDate(trialEnd.getDate() + 7) // 7 дней
+    trialEnd.setDate(trialEnd.getDate() + 7)
 
     const { error } = await supabase.from('user_status').update({
       trial_ends_at: trialEnd.toISOString()
@@ -274,7 +264,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -328,7 +318,6 @@ export default function Home() {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
     
-    // Лимит проверяется только если нет премиума/триала
     if (!hasPremiumAccess && !editingPetId && pets.length >= 1) {
       setShowPremiumModal(true)
       return
@@ -494,7 +483,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
       
-      {/* ПЛАШКА ТРИАЛА */}
       {trialDaysLeft !== null && trialDaysLeft > 0 && (
         <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-center py-2 text-sm font-medium print:hidden flex justify-center items-center gap-2 shadow-sm">
           <span>✨ У вас активен Premium (Пробный период)! Осталось дней: {trialDaysLeft}</span>
@@ -502,7 +490,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* PREMIUM MODAL */}
       {showPremiumModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
@@ -521,7 +508,6 @@ export default function Home() {
                 <li className="flex items-center gap-3">✨ Приоритетная поддержка</li>
               </ul>
 
-              {/* Кнопка пробного периода (показываем, только если триала еще не было) */}
               {trialDaysLeft === null && (
                 <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-center">
                   <p className="text-sm text-green-800 dark:text-green-300 font-medium mb-3">Не уверены? Попробуйте все функции бесплатно!</p>
@@ -537,7 +523,6 @@ export default function Home() {
                 <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
               </div>
 
-              {/* Переключатель тарифов */}
               <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-6">
                 <button 
                   onClick={() => setBillingPeriod('monthly')} 
@@ -601,22 +586,30 @@ export default function Home() {
             )}
           </div>
           <div className="space-y-2 mb-4">
-            {pets.map(pet => (
-              <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
-                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden ml-3 shrink-0">
-                  {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" /> : <span className="text-lg">🐾</span>}
-                </div>
-                <div className="flex-1 text-left px-3 py-2">
-                  <span className="font-medium text-gray-800 dark:text-gray-100 block">{pet.name}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{pet.species} {pet.breed ? `• ${pet.breed}` : ''} {pet.birth_date ? `• ${calculateAge(pet.birth_date)}` : ''}</span>
-                </div>
-                <div className="flex gap-1 pr-2">
-                  <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-blue-500 transition" title="Редактировать">✏️</button>
-                  <button onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }} className="p-1 text-gray-300 hover:text-red-500 transition" title="Удалить">×</button>
-                </div>
+            {pets.length === 0 ? (
+              <div className="text-center p-6 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-dashed border-blue-200 dark:border-blue-800 mb-2">
+                <span className="text-4xl mb-2 block">🐶</span>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Шаг 1. Добавьте питомца</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Заполните форму ниже, чтобы начать вести дневник.</p>
+                <div className="text-2xl animate-bounce mt-2">↓</div>
               </div>
-            ))}
-            {pets.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Пока нет питомцев</p>}
+            ) : (
+              pets.map(pet => (
+                <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
+                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden ml-3 shrink-0">
+                    {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" /> : <span className="text-lg">🐾</span>}
+                  </div>
+                  <div className="flex-1 text-left px-3 py-2">
+                    <span className="font-medium text-gray-800 dark:text-gray-100 block">{pet.name}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{pet.species} {pet.breed ? `• ${pet.breed}` : ''} {pet.birth_date ? `• ${calculateAge(pet.birth_date)}` : ''}</span>
+                  </div>
+                  <div className="flex gap-1 pr-2">
+                    <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-blue-500 transition" title="Редактировать">✏️</button>
+                    <button onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }} className="p-1 text-gray-300 hover:text-red-500 transition" title="Удалить">×</button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <form onSubmit={savePet} className="space-y-2 border-t border-gray-100 dark:border-gray-700 pt-4">
@@ -723,7 +716,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Блок профиля для печати */}
           <div className="hidden print:block mb-6 border-b pb-4">
             <div className="flex items-center gap-4 mb-2">
               {selectedPet?.avatar_url && <img src={selectedPet.avatar_url} className="w-16 h-16 rounded-full object-cover" />}
@@ -771,33 +763,41 @@ export default function Home() {
                     </div>
                   )}
 
-                  <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
-                    {records.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Пока нет записей</p>}
-                    {records.map(record => {
-                      const reminder = getReminderStatus(record.next_date);
-                      return (
-                        <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : record.type === 'expense' ? 'border-emerald-400 print:border-gray-400' : 'border-blue-200 dark:border-blue-700 print:border-gray-400'}`}>
-                          <div className="flex justify-between items-center">
-                            <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : record.type === 'expense' ? 'text-emerald-600 dark:text-emerald-500' : 'text-blue-500 dark:text-blue-400'}`}>
-                              {RECORD_LABELS[record.type] || record.type}
-                            </span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-gray-400 dark:text-gray-500">{record.record_date}</span>
-                              <div className="flex gap-1 print:hidden">
-                                <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
-                                <button onClick={() => deleteRecord(record.id)} className="text-gray-300 hover:text-red-500 p-1">×</button>
+                  {records.length === 0 ? (
+                    <div className="text-center p-6 bg-green-50/50 dark:bg-green-900/20 rounded-xl border border-dashed border-green-200 dark:border-green-800 mt-6">
+                      <span className="text-4xl mb-2 block">📝</span>
+                      <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">Шаг 2. Добавьте запись</p>
+                      <p className="text-xs text-green-600 dark:text-green-400">Заполните форму слева, чтобы добавить первый вес или прививку.</p>
+                      <div className="text-2xl animate-bounce mt-2">←</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
+                      {records.map(record => {
+                        const reminder = getReminderStatus(record.next_date);
+                        return (
+                          <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : record.type === 'expense' ? 'border-emerald-400 print:border-gray-400' : 'border-blue-200 dark:border-blue-700 print:border-gray-400'}`}>
+                            <div className="flex justify-between items-center">
+                              <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : record.type === 'expense' ? 'text-emerald-600 dark:text-emerald-500' : 'text-blue-500 dark:text-blue-400'}`}>
+                                {RECORD_LABELS[record.type] || record.type}
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-gray-400 dark:text-gray-500">{record.record_date}</span>
+                                <div className="flex gap-1 print:hidden">
+                                  <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
+                                  <button onClick={() => deleteRecord(record.id)} className="text-gray-300 hover:text-red-500 p-1">×</button>
+                                </div>
                               </div>
                             </div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">
+                              {record.value}{record.type === 'weight' ? ' кг' : record.type === 'expense' ? ' ₽' : ''}
+                            </p>
+                            {reminder && <div className={`mt-2 inline-block px-2 py-1 rounded text-xs font-medium ${reminder.color}`}>Следующий раз: {reminder.text}</div>}
+                            {record.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{record.note}</p>}
                           </div>
-                          <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">
-                            {record.value}{record.type === 'weight' ? ' кг' : record.type === 'expense' ? ' ₽' : ''}
-                          </p>
-                          {reminder && <div className={`mt-2 inline-block px-2 py-1 rounded text-xs font-medium ${reminder.color}`}>Следующий раз: {reminder.text}</div>}
-                          {record.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{record.note}</p>}
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </>
               )}
 
