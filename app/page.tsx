@@ -49,7 +49,8 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRecord[], onDayClick: (date: string) => void, selectedDate: string }) {
+// --- НОВЫЙ КОМПОНЕНТ КАЛЕНДАРЯ ---
+function CalendarView({ records, onDayClick }: { records: HealthRecord[], onDayClick: (date: string) => void }) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -83,21 +84,18 @@ function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRe
     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const dayEvents = eventsByDate[dateString] || []
     const isToday = dateString === todayLocal()
-    const isSelected = dateString === selectedDate
 
     return (
       <div 
         key={day} 
         onClick={() => onDayClick(dateString)}
         className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-400 hover:shadow-md hover:scale-[1.02] ${
-          isSelected 
-            ? 'border-blue-500 ring-2 ring-blue-500/50 bg-blue-50/30 dark:bg-blue-900/20' 
-            : isToday 
-              ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10' 
-              : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+          isToday 
+            ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10' 
+            : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
         }`}
       >
-        <span className={`text-xs font-medium ${isSelected || isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
+        <span className={`text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
         <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-1 custom-scrollbar pointer-events-none">
           {dayEvents.map((e, idx) => (
             <div key={idx} title={e.value} className={`text-[10px] truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}>
@@ -108,8 +106,6 @@ function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRe
       </div>
     )
   })
-
-  const selectedDayEvents = eventsByDate[selectedDate] || [];
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
@@ -125,35 +121,13 @@ function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRe
         {blanks}
         {days}
       </div>
-
-      {/* Блок с событиями выбранного дня */}
-      <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
-        <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-          📅 События на {selectedDate}
-        </h4>
-        {selectedDayEvents.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg text-center">
-            На этот день пока нет записей. Добавьте новую запись!
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
-            {selectedDayEvents.map((e, idx) => (
-              <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">
-                    {RECORD_LABELS[e.type] || e.type}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{e.value}</p>
-                {e.note && <p className="text-xs text-gray-500 mt-1">{e.note}</p>}
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="mt-4 text-xs text-center text-gray-400">
+        Нажмите на любой день, чтобы открыть его
       </div>
     </div>
   )
 }
+// -------------------------------------
 
 export default function Home() {
   const [session, setSession] = useState<any>(null)
@@ -167,9 +141,13 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
   
+  // Стейты для модалок
   const [showPremiumModal, setShowPremiumModal] = useState(false) 
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showDayModal, setShowDayModal] = useState(false) // Модалка дня календаря
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState('') // Выбранная дата
+  
   const [shareEmail, setShareEmail] = useState('')
   const [sharingPetId, setSharingPetId] = useState<string | null>(null)
   
@@ -214,6 +192,9 @@ export default function Home() {
     const diffDays = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
     return diffDays >= 0 && diffDays <= 7;
   })
+
+  // События для выбранного дня (для модалки)
+  const dayEvents = records.filter(r => r.record_date === calendarSelectedDate || r.next_date === calendarSelectedDate)
 
   useEffect(() => {
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -391,7 +372,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -518,16 +499,25 @@ export default function Home() {
     setRecordDate(todayLocal()); setRecordNote(''); setRecordNextDate('')
   }
 
+  // --- ОБРАБОТКА КЛИКА ПО ДНЮ ---
   function handleCalendarDayClick(date: string) {
+    setCalendarSelectedDate(date)
+    setShowDayModal(true)
+  }
+
+  // --- КНОПКА "ДОБАВИТЬ ЗАПИСЬ НА ЭТОТ ДЕНЬ" ИЗ МОДАЛКИ ---
+  function handleAddFromModal() {
     setEditingRecordId(null)
     setRecordType('weight')
     setRecordValue('')
     setRecordNote('')
     setRecordNextDate('')
-    setRecordDate(date)
-    toast.success('Дата выбрана. Заполните форму!')
+    setRecordDate(calendarSelectedDate)
+    setShowDayModal(false)
     
-    // Прокрутка к форме на мобильных устройствах
+    toast.success('Дата подставлена в форму!')
+    
+    // Прокрутка к форме на мобильных
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
     }
@@ -623,6 +613,44 @@ export default function Home() {
         <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-center py-2 text-sm font-medium print:hidden flex justify-center items-center gap-2 shadow-sm">
           <span>✨ У вас активен Premium (Пробный период)! Осталось дней: {trialDaysLeft}</span>
           <button onClick={() => setShowPremiumModal(true)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-xs transition">Продлить</button>
+        </div>
+      )}
+
+      {/* МОДАЛКА ДНЯ КАЛЕНДАРЯ */}
+      {showDayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
+            <button onClick={() => setShowDayModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
+            
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-center text-white">
+              <h2 className="text-2xl font-bold">{calendarSelectedDate}</h2>
+              <p className="text-blue-100 text-sm">События на этот день</p>
+            </div>
+            
+            <div className="p-6">
+              {dayEvents.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-4 mb-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                  На этот день пока нет записей.
+                </p>
+              ) : (
+                <div className="space-y-3 max-h-[30vh] overflow-y-auto mb-6 pr-1">
+                  {dayEvents.map(ev => (
+                    <div key={ev.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                      <div>
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase block mb-1">{RECORD_LABELS[ev.type] || ev.type}</span>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{ev.value}</p>
+                        {ev.note && <p className="text-xs text-gray-500 mt-1">{ev.note}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button onClick={handleAddFromModal} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-500/30">
+                + Добавить запись на этот день
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1041,7 +1069,7 @@ export default function Home() {
                 </>
               )}
 
-              {viewMode === 'calendar' && <CalendarView records={records} onDayClick={handleCalendarDayClick} selectedDate={recordDate} />}
+              {viewMode === 'calendar' && <CalendarView records={records} onDayClick={handleCalendarDayClick} />}
 
               {viewMode === 'docs' && (
                 <div className="space-y-4">
