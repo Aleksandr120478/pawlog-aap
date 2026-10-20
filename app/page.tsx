@@ -18,7 +18,11 @@ type PetDocument = {
 }
 
 const RECORD_LABELS: Record<string, string> = {
-  weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка'
+  weight: 'Вес', 
+  vaccine: 'Прививка', 
+  medication: 'Лекарство',
+  note: 'Заметка',
+  expense: 'Расход (₽)'
 }
 
 function todayLocal() {
@@ -27,7 +31,7 @@ function todayLocal() {
   return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
 }
 
-// Функция подсчета возраста
+// Подсчет возраста
 function calculateAge(birthDate: string | null) {
   if (!birthDate) return null;
   const birth = new Date(birthDate);
@@ -35,8 +39,7 @@ function calculateAge(birthDate: string | null) {
   let years = now.getFullYear() - birth.getFullYear();
   let months = now.getMonth() - birth.getMonth();
   if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
-    years--;
-    months += 12;
+    years--; months += 12;
   }
   if (years === 0 && months === 0) return 'Меньше месяца';
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
@@ -120,6 +123,7 @@ export default function Home() {
   const [savingRecord, setSavingRecord] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
+  const [showPremiumModal, setShowPremiumModal] = useState(false) // Стейт для окна Premium
 
   // Форма питомца
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
@@ -145,6 +149,9 @@ export default function Home() {
   const [recordNextDate, setRecordNextDate] = useState('')
 
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
+
+  // Общая сумма расходов
+  const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
 
   useEffect(() => {
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -266,7 +273,12 @@ export default function Home() {
   async function savePet(e: React.FormEvent) {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
-    if (!editingPetId && pets.length >= 1) return toast.error('В бесплатной версии можно добавить только 1 питомца. Оформите Premium!')
+    
+    // Вызов Premium-окна при лимите
+    if (!editingPetId && pets.length >= 1) {
+      setShowPremiumModal(true)
+      return
+    }
 
     setSavingPet(true)
     let avatarUrl = petAvatarUrl
@@ -303,6 +315,50 @@ export default function Home() {
     if (editingPetId === id) resetPetForm()
   }
 
+  // Добавление шаблонов прививок
+  async function addVaccineTemplates() {
+    if (!selectedPet) return
+    
+    let templates = []
+    if (selectedPet.species === 'Собака') {
+      templates = ['Бешенство', 'Чума плотоядных', 'Парвовирусный энтерит', 'Лептоспироз']
+    } else if (selectedPet.species === 'Кошка') {
+      templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
+    } else {
+      return toast.error('Шаблоны доступны только для собак и кошек')
+    }
+
+    if (records.length + templates.length > 10) {
+      setShowPremiumModal(true)
+      return
+    }
+
+    const toastId = toast.loading('Добавляем прививки...')
+    
+    // Дата на год вперед для следующей ревакцинации
+    const nextDate = new Date()
+    nextDate.setFullYear(nextDate.getFullYear() + 1)
+    const nextDateString = nextDate.toISOString().split('T')[0]
+
+    const recordsToInsert = templates.map(vaccineName => ({
+      pet_id: selectedPet.id,
+      type: 'vaccine',
+      value: vaccineName,
+      record_date: todayLocal(),
+      next_date: nextDateString,
+      note: 'Добавлено автоматически',
+      reminder_sent: false
+    }))
+
+    const { error } = await supabase.from('health_records').insert(recordsToInsert)
+    
+    if (error) toast.error(error.message, { id: toastId })
+    else {
+      toast.success('График прививок добавлен!', { id: toastId })
+      fetchRecords(selectedPet.id)
+    }
+  }
+
   function startEditingRecord(record: HealthRecord) {
     setEditingRecordId(record.id); setRecordType(record.type); setRecordValue(record.value)
     setRecordDate(record.record_date); setRecordNote(record.note || ''); setRecordNextDate(record.next_date || '')
@@ -318,8 +374,16 @@ export default function Home() {
     if (!selectedPetId) return toast.error('Выберите питомца')
     const trimmed = recordValue.trim()
     if (!trimmed) return toast.error('Введите значение')
-    if (recordType === 'weight' && !/^\d+(\.\d+)?$/.test(trimmed)) return toast.error('Вес должен быть числом, например 5.2')
-    if (!editingRecordId && records.length >= 10) return toast.error('В бесплатной версии можно добавить не более 10 записей. Оформите Premium!')
+    
+    // Проверка для чисел (вес и расходы)
+    if ((recordType === 'weight' || recordType === 'expense') && !/^\d+(\.\d+)?$/.test(trimmed)) {
+      return toast.error('Введите число, например 5.2 или 1500')
+    }
+
+    if (!editingRecordId && records.length >= 10) {
+      setShowPremiumModal(true)
+      return
+    }
 
     setSavingRecord(true)
     const recordData = { type: recordType, value: trimmed, note: recordNote.trim() || null, record_date: recordDate, next_date: recordNextDate || null, reminder_sent: false }
@@ -370,8 +434,8 @@ export default function Home() {
           <h1 className="text-5xl font-extrabold mb-6 flex items-center gap-4">🐾 PawLog</h1>
           <p className="text-xl md:text-2xl mb-8 text-blue-100">Умный дневник здоровья вашего питомца. Следите за весом, прививками и лекарствами. Скачивайте красивые PDF-отчеты для ветеринара.</p>
           <ul className="space-y-4 text-lg text-blue-50 mb-12">
-            <li className="flex items-center gap-3">✅ Учет веса, прививок и лекарств</li>
-            <li className="flex items-center gap-3">✅ Медицинская карта (аллергии, болезни)</li>
+            <li className="flex items-center gap-3">✅ Учет веса, прививок и расходов</li>
+            <li className="flex items-center gap-3">✅ Медицинская карта и документы</li>
             <li className="flex items-center gap-3">✅ Email-напоминания о процедурах</li>
             <li className="flex items-center gap-3">✅ Печать медицинской карты в один клик</li>
           </ul>
@@ -392,6 +456,35 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
+      
+      {/* PREMIUM MODAL */}
+      {showPremiumModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
+            <button onClick={() => setShowPremiumModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none">&times;</button>
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center text-white">
+              <h2 className="text-3xl font-extrabold mb-2">PawLog Premium</h2>
+              <p className="text-blue-100">Снимите все ограничения</p>
+            </div>
+            <div className="p-8">
+              <ul className="space-y-3 mb-8 text-sm text-gray-700 dark:text-gray-300">
+                <li className="flex items-center gap-3">✨ <b>Безлимитные питомцы</b> (вместо 1)</li>
+                <li className="flex items-center gap-3">✨ <b>Безлимитные записи</b> (вместо 10)</li>
+                <li className="flex items-center gap-3">✨ Автоматические графики прививок</li>
+                <li className="flex items-center gap-3">✨ Приоритетная поддержка</li>
+              </ul>
+              <div className="text-center mb-6">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span>
+                <span className="text-gray-500 dark:text-gray-400"> / мес</span>
+              </div>
+              <button onClick={() => { toast.success('Здесь будет переход на оплату ЮKassa!'); setShowPremiumModal(false); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
+                Оформить подписку
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
         <h1 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">🐾 PawLog</h1>
         <div className="flex items-center gap-4">
@@ -464,20 +557,33 @@ export default function Home() {
 
         {/* СРЕДНЯЯ КОЛОНКА */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
-          <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-4">{editingRecordId ? 'Редактировать запись' : 'Новая запись'}</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold text-gray-700 dark:text-gray-200">{editingRecordId ? 'Редактировать запись' : 'Новая запись'}</h2>
+          </div>
           {selectedPet ? (
             <form onSubmit={saveRecord} className="space-y-3">
               <div className="flex justify-between items-center mb-2">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Для: <span className="font-medium text-gray-700 dark:text-gray-200">{selectedPet.name}</span></p>
                 <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/10</span>
               </div>
+              
+              {/* Кнопка шаблонов */}
+              {(selectedPet.species === 'Собака' || selectedPet.species === 'Кошка') && !editingRecordId && (
+                <button type="button" onClick={addVaccineTemplates} className="w-full bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-xs py-2 rounded-lg border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition flex items-center justify-center gap-1 font-medium">
+                  🪄 Добавить график прививок
+                </button>
+              )}
+
               <select value={recordType} onChange={e => setRecordType(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 <option value="weight">Вес (кг)</option>
                 <option value="vaccine">Прививка</option>
                 <option value="medication">Лекарство</option>
+                <option value="expense">Расход (₽)</option>
                 <option value="note">Заметка (Дневник)</option>
               </select>
-              <input type="text" placeholder={recordType === 'weight' ? 'Например, 12.5' : recordType === 'note' ? 'Что случилось?' : 'Название'} value={recordValue} onChange={e => setRecordValue(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              
+              <input type="text" placeholder={recordType === 'weight' ? 'Например, 12.5' : recordType === 'expense' ? 'Сумма (например, 1500)' : recordType === 'note' ? 'Что случилось?' : 'Название'} value={recordValue} onChange={e => setRecordValue(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Дата события</label>
                 <input type="date" value={recordDate} onChange={e => setRecordDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
@@ -542,6 +648,14 @@ export default function Home() {
             <>
               {viewMode === 'list' && (
                 <>
+                  {/* Счетчик расходов */}
+                  {totalExpenses > 0 && (
+                    <div className="mb-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 p-3 rounded-xl flex justify-between items-center print:hidden">
+                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Всего потрачено:</span>
+                      <span className="text-lg font-bold text-emerald-800 dark:text-emerald-300">{totalExpenses.toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                  )}
+
                   {weightData.length > 1 && (
                     <div className="mb-6 print:hidden bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                       <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">Динамика веса (кг)</h3>
@@ -564,9 +678,9 @@ export default function Home() {
                     {records.map(record => {
                       const reminder = getReminderStatus(record.next_date);
                       return (
-                        <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : 'border-blue-200 dark:border-blue-700 print:border-gray-400'}`}>
+                        <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : record.type === 'expense' ? 'border-emerald-400 print:border-gray-400' : 'border-blue-200 dark:border-blue-700 print:border-gray-400'}`}>
                           <div className="flex justify-between items-center">
-                            <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : 'text-blue-500 dark:text-blue-400'}`}>
+                            <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : record.type === 'expense' ? 'text-emerald-600 dark:text-emerald-500' : 'text-blue-500 dark:text-blue-400'}`}>
                               {RECORD_LABELS[record.type] || record.type}
                             </span>
                             <div className="flex items-center gap-3">
@@ -577,7 +691,9 @@ export default function Home() {
                               </div>
                             </div>
                           </div>
-                          <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">{record.value}{record.type === 'weight' ? ' кг' : ''}</p>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">
+                            {record.value}{record.type === 'weight' ? ' кг' : record.type === 'expense' ? ' ₽' : ''}
+                          </p>
                           {reminder && <div className={`mt-2 inline-block px-2 py-1 rounded text-xs font-medium ${reminder.color}`}>Следующий раз: {reminder.text}</div>}
                           {record.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{record.note}</p>}
                         </div>
