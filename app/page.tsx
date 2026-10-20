@@ -187,7 +187,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -372,7 +372,17 @@ export default function Home() {
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">{editingPetId ? 'Редактировать профиль' : 'Добавить питомца'}</p>
             <input type="text" placeholder="Имя питомца" value={petName} onChange={e => setPetName(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
             <div className="flex gap-2">
-              <select value={petSpecies} onChange={e => setPetSpecies(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"><option>Собака</option><option>Кошка</option><option>Птица</option><option>Грызун</option><option>Другое</option></select>
+              
+              {/* ОБНОВЛЕННЫЙ СПИСОК ЖИВОТНЫХ */}
+              <select value={petSpecies} onChange={e => setPetSpecies(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option>Собака</option>
+                <option>Кошка</option>
+                <option>Попугай</option>
+                <option>Хомяк</option>
+                <option>Хорёк</option>
+                <option>Другое</option>
+              </select>
+
               <input type="text" placeholder="Порода" value={petBreed} onChange={e => setPetBreed(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
             </div>
             <input type="date" value={petBirthDate} onChange={e => setPetBirthDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300" />
@@ -462,7 +472,6 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Медицинская карта для печати */}
             <div className="bg-gray-50 p-3 rounded-lg mt-3 text-sm grid grid-cols-2 gap-2">
               <div><b>Аллергии:</b> {selectedPet?.allergies || 'Нет'}</div>
               <div><b>Хронические:</b> {selectedPet?.chronic_diseases || 'Нет'}</div>
