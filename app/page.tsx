@@ -1,10 +1,9 @@
 'use client'
-import AuthForm from './components/AuthForm'
-import CalendarView from './components/CalendarView'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import AuthForm from '../components/AuthForm'
 
 type Pet = { 
   id: string; name: string; species: string | null;
@@ -167,8 +166,6 @@ export default function Home() {
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
-  
-  // Считаем лимит ТОЛЬКО для собственных питомцев
   const ownedPetsCount = pets.filter(p => p.user_id === session?.user?.id).length
 
   const upcomingEvents = records.filter(r => {
@@ -220,16 +217,10 @@ export default function Home() {
 
   const fetchUserStatus = useCallback(async (userId: string) => {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
-    
     if (error && error.code === 'PGRST116') {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId, timezone: tz }).select().single()
+      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
       if (!insertError) data = newData
-    } else if (data && !data.timezone) {
-       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-       await supabase.from('user_status').update({ timezone: tz }).eq('user_id', userId)
     }
-
     if (data) {
       setIsPremium(data.is_premium || false)
       if (data.trial_ends_at) {
@@ -361,7 +352,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -374,7 +365,7 @@ export default function Home() {
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
-      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
       const { error: dbError } = await supabase.from('pet_documents').insert({
         pet_id: selectedPetId, name: file.name, url: data.publicUrl
       })
@@ -411,7 +402,6 @@ export default function Home() {
   async function savePet(e: React.FormEvent) {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
-    
     if (!hasPremiumAccess && !editingPetId && ownedPetsCount >= 1) {
       setShowPremiumModal(true)
       return
@@ -436,15 +426,8 @@ export default function Home() {
       else { toast.success('Профиль обновлен!'); fetchPets(editingPetId); resetPetForm() }
     } else {
       const { data, error } = await supabase.from('pets').insert({ ...petData, user_id: session.user.id }).select().single()
-      if (error) {
-        if (error.message.includes('LimitReached')) {
-          setShowPremiumModal(true)
-        } else {
-          toast.error(error.message)
-        }
-      } else {
-        toast.success('Питомец добавлен!'); fetchPets(data.id); resetPetForm()
-      }
+      if (error) toast.error(error.message)
+      else { toast.success('Питомец добавлен!'); fetchPets(data.id); resetPetForm() }
     }
     setSavingPet(false)
   }
@@ -518,15 +501,8 @@ export default function Home() {
       else { toast.success('Запись обновлена!'); fetchRecords(selectedPetId); resetRecordForm() }
     } else {
       const { error } = await supabase.from('health_records').insert({ ...recordData, pet_id: selectedPetId })
-      if (error) {
-        if (error.message.includes('LimitReached')) {
-          setShowPremiumModal(true)
-        } else {
-          toast.error(error.message)
-        }
-      } else {
-        toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm()
-      }
+      if (error) toast.error(error.message)
+      else { toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm() }
     }
     setSavingRecord(false)
   }
@@ -755,7 +731,6 @@ export default function Home() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
         
-        {/* ЛЕВАЯ КОЛОНКА */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">Мои питомцы</h2>
@@ -837,7 +812,6 @@ export default function Home() {
           </form>
         </section>
 
-        {/* СРЕДНЯЯ КОЛОНКА */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">{editingRecordId ? 'Редактировать запись' : 'Новая запись'}</h2>
@@ -891,7 +865,6 @@ export default function Home() {
           ) : <p className="text-sm text-gray-400 dark:text-gray-500">Сначала добавьте питомца</p>}
         </section>
 
-        {/* ПРАВАЯ КОЛОНКА */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:border-none print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 print:mb-8">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1054,4 +1027,3 @@ export default function Home() {
     </div>
   )
 }
-
