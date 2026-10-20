@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 type Pet = { 
   id: string; name: string; species: string | null;
   breed: string | null; birth_date: string | null; avatar_url: string | null;
+  allergies: string | null; chronic_diseases: string | null; food: string | null; vet_contact: string | null;
 }
 type HealthRecord = {
   id: string; pet_id: string; type: string; value: string;
@@ -14,13 +15,84 @@ type HealthRecord = {
 }
 
 const RECORD_LABELS: Record<string, string> = {
-  weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство',
+  weight: 'Вес', 
+  vaccine: 'Прививка', 
+  medication: 'Лекарство',
+  note: 'Заметка'
 }
 
 function todayLocal() {
   const d = new Date()
   const offset = d.getTimezoneOffset()
   return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
+}
+
+// Компонент календаря
+function CalendarView({ records }: { records: HealthRecord[] }) {
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth()
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const firstDayOfMonth = new Date(year, month, 1).getDay()
+  const startingDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1
+
+  const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
+  const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
+  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
+
+  const eventsByDate: Record<string, HealthRecord[]> = {}
+  records.forEach(r => {
+    if (r.record_date) {
+      eventsByDate[r.record_date] = eventsByDate[r.record_date] || []
+      eventsByDate[r.record_date].push(r)
+    }
+    if (r.next_date) {
+      eventsByDate[r.next_date] = eventsByDate[r.next_date] || []
+      eventsByDate[r.next_date].push({ ...r, type: 'reminder', value: 'Напоминание: ' + r.value })
+    }
+  })
+
+  const blanks = Array.from({ length: startingDay }, (_, i) => <div key={`blank-${i}`} className="h-20 md:h-24 bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-lg"></div>)
+  
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1
+    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const dayEvents = eventsByDate[dateString] || []
+    const isToday = dateString === todayLocal()
+
+    return (
+      <div key={day} className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col ${isToday ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
+        <span className={`text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
+        <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-1 custom-scrollbar">
+          {dayEvents.map((e, idx) => (
+            <div key={idx} title={e.value} className={`text-[10px] truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}>
+              {e.value}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  })
+
+  return (
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+      <div className="flex justify-between items-center mb-4">
+        <button onClick={prevMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">◀</button>
+        <h3 className="font-bold text-gray-800 dark:text-white">{monthNames[month]} {year}</h3>
+        <button onClick={nextMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">▶</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {weekDays.map(d => <div key={d} className="text-center text-xs font-semibold text-gray-400">{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {blanks}
+        {days}
+      </div>
+    </div>
+  )
 }
 
 export default function Home() {
@@ -32,6 +104,7 @@ export default function Home() {
   const [savingPet, setSavingPet] = useState(false)
   const [savingRecord, setSavingRecord] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
 
   // Форма питомца
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
@@ -41,6 +114,12 @@ export default function Home() {
   const [petBirthDate, setPetBirthDate] = useState('')
   const [petFile, setPetFile] = useState<File | null>(null)
   const [petAvatarUrl, setPetAvatarUrl] = useState<string | null>(null)
+  
+  // Медицинская карта
+  const [petAllergies, setPetAllergies] = useState('')
+  const [petChronic, setPetChronic] = useState('')
+  const [petFood, setPetFood] = useState('')
+  const [petVet, setPetVet] = useState('')
 
   // Форма записи
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
@@ -115,21 +194,19 @@ export default function Home() {
   function startEditingPet(pet: Pet) {
     setEditingPetId(pet.id); setPetName(pet.name); setPetSpecies(pet.species || 'Собака')
     setPetBreed(pet.breed || ''); setPetBirthDate(pet.birth_date || ''); setPetAvatarUrl(pet.avatar_url); setPetFile(null)
+    setPetAllergies(pet.allergies || ''); setPetChronic(pet.chronic_diseases || ''); setPetFood(pet.food || ''); setPetVet(pet.vet_contact || '')
   }
 
   function resetPetForm() {
     setEditingPetId(null); setPetName(''); setPetSpecies('Собака'); setPetBreed('')
     setPetBirthDate(''); setPetFile(null); setPetAvatarUrl(null)
+    setPetAllergies(''); setPetChronic(''); setPetFood(''); setPetVet('')
   }
 
   async function savePet(e: React.FormEvent) {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
-    
-    // === БЕСПЛАТНЫЙ ЛИМИТ: 1 ПИТОМЕЦ ===
-    if (!editingPetId && pets.length >= 1) {
-      return toast.error('В бесплатной версии можно добавить только 1 питомца. Оформите Premium для снятия ограничений!')
-    }
+    if (!editingPetId && pets.length >= 1) return toast.error('В бесплатной версии можно добавить только 1 питомца. Оформите Premium!')
 
     setSavingPet(true)
     let avatarUrl = petAvatarUrl
@@ -137,7 +214,12 @@ export default function Home() {
       if (petFile) avatarUrl = await uploadAvatar(petFile)
     } catch (error: any) { toast.error('Ошибка загрузки фото: ' + error.message) }
 
-    const petData = { name: petName.trim(), species: petSpecies, breed: petBreed || null, birth_date: petBirthDate || null, avatar_url: avatarUrl }
+    const petData = { 
+      name: petName.trim(), species: petSpecies, breed: petBreed || null, 
+      birth_date: petBirthDate || null, avatar_url: avatarUrl,
+      allergies: petAllergies || null, chronic_diseases: petChronic || null, 
+      food: petFood || null, vet_contact: petVet || null
+    }
 
     if (editingPetId) {
       const { error } = await supabase.from('pets').update(petData).eq('id', editingPetId)
@@ -177,14 +259,10 @@ export default function Home() {
     const trimmed = recordValue.trim()
     if (!trimmed) return toast.error('Введите значение')
     if (recordType === 'weight' && !/^\d+(\.\d+)?$/.test(trimmed)) return toast.error('Вес должен быть числом, например 5.2')
-    
-    // === БЕСПЛАТНЫЙ ЛИМИТ: 10 ЗАПИСЕЙ ===
-    if (!editingRecordId && records.length >= 10) {
-      return toast.error('В бесплатной версии можно добавить не более 10 записей. Оформите Premium!')
-    }
+    if (!editingRecordId && records.length >= 10) return toast.error('В бесплатной версии можно добавить не более 10 записей. Оформите Premium!')
 
     setSavingRecord(true)
-    const recordData = { type: recordType, value: trimmed, note: recordNote.trim() || null, record_date: recordDate, next_date: recordNextDate || null }
+    const recordData = { type: recordType, value: trimmed, note: recordNote.trim() || null, record_date: recordDate, next_date: recordNextDate || null, reminder_sent: false }
 
     if (editingRecordId) {
       const { error } = await supabase.from('health_records').update(recordData).eq('id', editingRecordId)
@@ -233,9 +311,9 @@ export default function Home() {
           <p className="text-xl md:text-2xl mb-8 text-blue-100">Умный дневник здоровья вашего питомца. Следите за весом, прививками и лекарствами. Скачивайте красивые PDF-отчеты для ветеринара.</p>
           <ul className="space-y-4 text-lg text-blue-50 mb-12">
             <li className="flex items-center gap-3">✅ Учет веса, прививок и лекарств</li>
-            <li className="flex items-center gap-3">✅ Умные напоминания о следующей дате</li>
+            <li className="flex items-center gap-3">✅ Медицинская карта (аллергии, болезни)</li>
+            <li className="flex items-center gap-3">✅ Email-напоминания о процедурах</li>
             <li className="flex items-center gap-3">✅ Печать медицинской карты в один клик</li>
-            <li className="flex items-center gap-3">✅ Облачное хранение и фото питомцев</li>
           </ul>
         </div>
         <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
@@ -298,7 +376,17 @@ export default function Home() {
               <input type="text" placeholder="Порода" value={petBreed} onChange={e => setPetBreed(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
             </div>
             <input type="date" value={petBirthDate} onChange={e => setPetBirthDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300" />
-            <div className="text-sm">
+            
+            {/* МЕДИЦИНСКАЯ КАРТА */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700 space-y-2 mt-2">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Медицинская карта</p>
+              <input type="text" placeholder="Аллергии" value={petAllergies} onChange={e => setPetAllergies(e.target.value)} className="w-full px-2 py-1.5 border dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              <input type="text" placeholder="Хронические болезни" value={petChronic} onChange={e => setPetChronic(e.target.value)} className="w-full px-2 py-1.5 border dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              <input type="text" placeholder="Корм / Диета" value={petFood} onChange={e => setPetFood(e.target.value)} className="w-full px-2 py-1.5 border dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              <input type="text" placeholder="Контакт ветеринара" value={petVet} onChange={e => setPetVet(e.target.value)} className="w-full px-2 py-1.5 border dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+            </div>
+
+            <div className="text-sm pt-2">
               <label className="block text-gray-500 dark:text-gray-400 mb-1 text-xs">{editingPetId ? 'Новое фото' : 'Фото питомца'}</label>
               <input type="file" accept="image/*" onChange={e => setPetFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-gray-600 file:text-blue-700 dark:file:text-white hover:file:bg-blue-100" />
             </div>
@@ -318,19 +406,29 @@ export default function Home() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Для: <span className="font-medium text-gray-700 dark:text-gray-200">{selectedPet.name}</span></p>
                 <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/10</span>
               </div>
-              <select value={recordType} onChange={e => setRecordType(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"><option value="weight">Вес (кг)</option><option value="vaccine">Прививка</option><option value="medication">Лекарство</option></select>
-              <input type="text" placeholder={recordType === 'weight' ? 'Например, 12.5' : 'Название'} value={recordValue} onChange={e => setRecordValue(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              <select value={recordType} onChange={e => setRecordType(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="weight">Вес (кг)</option>
+                <option value="vaccine">Прививка</option>
+                <option value="medication">Лекарство</option>
+                <option value="note">Заметка (Дневник)</option>
+              </select>
+              <input type="text" placeholder={recordType === 'weight' ? 'Например, 12.5' : recordType === 'note' ? 'Что случилось?' : 'Название'} value={recordValue} onChange={e => setRecordValue(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Дата события</label>
                 <input type="date" value={recordDate} onChange={e => setRecordDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
               </div>
+              
               {(recordType === 'vaccine' || recordType === 'medication') && (
                 <div className="bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg border border-orange-100 dark:border-orange-800/50">
-                  <label className="block text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">Напоминание</label>
+                  <label className="block text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">Напоминание (Email)</label>
                   <input type="date" value={recordNextDate} onChange={e => setRecordNextDate(e.target.value)} className="w-full px-3 py-2 border border-orange-200 dark:border-orange-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
                 </div>
               )}
-              <textarea placeholder="Заметка (необязательно)" value={recordNote} onChange={e => setRecordNote(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none h-16" />
+
+              {recordType !== 'note' && (
+                <textarea placeholder="Заметка (необязательно)" value={recordNote} onChange={e => setRecordNote(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none h-16" />
+              )}
+              
               <div className="flex gap-2">
                 <button type="submit" disabled={savingRecord} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition ${editingRecordId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>{savingRecord ? 'Сохраняем...' : editingRecordId ? 'Обновить' : 'Сохранить'}</button>
                 {editingRecordId && <button type="button" onClick={resetRecordForm} className="px-4 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-sm hover:bg-gray-300">Отмена</button>}
@@ -341,11 +439,20 @@ export default function Home() {
 
         {/* ПРАВАЯ КОЛОНКА */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:border-none print:shadow-none print:p-0">
-          <div className="flex justify-between items-center mb-4 print:mb-8">
-            <h2 className="font-semibold text-gray-700 dark:text-gray-200">{selectedPet ? `История: ${selectedPet.name}` : 'Лента'}</h2>
-            {selectedPet && records.length > 0 && <button onClick={() => window.print()} className="print:hidden text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-1">🖨️ Печать / PDF</button>}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 print:mb-8">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-gray-700 dark:text-gray-200">{selectedPet ? selectedPet.name : 'Лента'}</h2>
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 print:hidden">
+                <button onClick={() => setViewMode('list')} className={`px-2 py-1 text-xs rounded-md transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📋 Список</button>
+                <button onClick={() => setViewMode('calendar')} className={`px-2 py-1 text-xs rounded-md transition ${viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📅 Календарь</button>
+              </div>
+            </div>
+            {selectedPet && records.length > 0 && viewMode === 'list' && (
+              <button onClick={() => window.print()} className="print:hidden text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-1">🖨️ PDF</button>
+            )}
           </div>
 
+          {/* Блок профиля для печати */}
           <div className="hidden print:block mb-6 border-b pb-4">
             <div className="flex items-center gap-4 mb-2">
               {selectedPet?.avatar_url && <img src={selectedPet.avatar_url} className="w-16 h-16 rounded-full object-cover" />}
@@ -354,50 +461,69 @@ export default function Home() {
                 <p className="text-sm text-gray-500">{selectedPet?.species} {selectedPet?.breed ? `• ${selectedPet.breed}` : ''} {selectedPet?.birth_date ? ` • Дата рождения: ${selectedPet.birth_date}` : ''}</p>
               </div>
             </div>
-            <p className="text-sm text-gray-500">Дата отчета: {new Date().toLocaleDateString('ru-RU')}</p>
+            
+            {/* Медицинская карта для печати */}
+            <div className="bg-gray-50 p-3 rounded-lg mt-3 text-sm grid grid-cols-2 gap-2">
+              <div><b>Аллергии:</b> {selectedPet?.allergies || 'Нет'}</div>
+              <div><b>Хронические:</b> {selectedPet?.chronic_diseases || 'Нет'}</div>
+              <div><b>Корм:</b> {selectedPet?.food || 'Не указано'}</div>
+              <div><b>Ветеринар:</b> {selectedPet?.vet_contact || 'Не указан'}</div>
+            </div>
+
+            <p className="text-sm text-gray-500 mt-3">Дата отчета: {new Date().toLocaleDateString('ru-RU')}</p>
           </div>
 
-          {selectedPet && weightData.length > 1 && (
-            <div className="mb-6 print:hidden bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">Динамика веса (кг)</h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weightData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} vertical={false} />
-                    <XAxis dataKey="date" tick={{fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280'}} tickLine={false} axisLine={false} />
-                    <YAxis tick={{fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280'}} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
-                    <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f2937' : '#ffffff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: isDark ? '#f3f4f6' : '#111827' }} itemStyle={{ color: isDark ? '#60a5fa' : '#2563eb', fontWeight: 'bold' }} />
-                    <Line type="monotone" dataKey="weight" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: isDark ? '#1f2937' : '#fff' }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
           {selectedPet ? (
-            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
-              {records.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Пока нет записей</p>}
-              {records.map(record => {
-                const reminder = getReminderStatus(record.next_date);
-                return (
-                  <div key={record.id} className="border-l-4 border-blue-200 dark:border-blue-700 pl-3 py-1 print:border-gray-400 print:break-inside-avoid">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium uppercase text-blue-500 dark:text-blue-400 print:text-gray-800">{RECORD_LABELS[record.type] || record.type}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">{record.record_date}</span>
-                        <div className="flex gap-1 print:hidden">
-                          <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
-                          <button onClick={() => deleteRecord(record.id)} className="text-gray-300 hover:text-red-500 p-1">×</button>
-                        </div>
+            <>
+              {viewMode === 'list' ? (
+                <>
+                  {weightData.length > 1 && (
+                    <div className="mb-6 print:hidden bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">Динамика веса (кг)</h3>
+                      <div className="h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weightData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} vertical={false} />
+                            <XAxis dataKey="date" tick={{fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280'}} tickLine={false} axisLine={false} />
+                            <YAxis tick={{fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280'}} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
+                            <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f2937' : '#ffffff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: isDark ? '#f3f4f6' : '#111827' }} itemStyle={{ color: isDark ? '#60a5fa' : '#2563eb', fontWeight: 'bold' }} />
+                            <Line type="monotone" dataKey="weight" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: isDark ? '#1f2937' : '#fff' }} activeDot={{ r: 6 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">{record.value}{record.type === 'weight' ? ' кг' : ''}</p>
-                    {reminder && <div className={`mt-2 inline-block px-2 py-1 rounded text-xs font-medium ${reminder.color}`}>Следующий раз: {reminder.text}</div>}
-                    {record.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{record.note}</p>}
+                  )}
+
+                  <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
+                    {records.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Пока нет записей</p>}
+                    {records.map(record => {
+                      const reminder = getReminderStatus(record.next_date);
+                      return (
+                        <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : 'border-blue-200 dark:border-blue-700 print:border-gray-400'}`}>
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : 'text-blue-500 dark:text-blue-400'}`}>
+                              {RECORD_LABELS[record.type] || record.type}
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-gray-400 dark:text-gray-500">{record.record_date}</span>
+                              <div className="flex gap-1 print:hidden">
+                                <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
+                                <button onClick={() => deleteRecord(record.id)} className="text-gray-300 hover:text-red-500 p-1">×</button>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">{record.value}{record.type === 'weight' ? ' кг' : ''}</p>
+                          {reminder && <div className={`mt-2 inline-block px-2 py-1 rounded text-xs font-medium ${reminder.color}`}>Следующий раз: {reminder.text}</div>}
+                          {record.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{record.note}</p>}
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
-            </div>
+                </>
+              ) : (
+                <CalendarView records={records} />
+              )}
+            </>
           ) : <p className="text-sm text-gray-400 dark:text-gray-500">Выберите питомца</p>}
         </section>
       </main>
@@ -405,7 +531,6 @@ export default function Home() {
   )
 }
 
-// === ФОРМА АВТОРИЗАЦИИ С ВОССТАНОВЛЕНИЕМ ПАРОЛЯ ===
 function AuthForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -421,18 +546,16 @@ function AuthForm() {
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) toast.error(error.message)
-      else toast.success('Готово! Проверьте почту (если включено подтверждение).')
+      else toast.success('Готово! Проверьте почту.')
     }
     setBusy(false)
   }
 
   async function handleResetPassword() {
-    if (!email) return toast.error('Сначала введите ваш Email в поле выше')
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    })
+    if (!email) return toast.error('Введите Email')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
     if (error) toast.error(error.message)
-    else toast.success('Письмо для сброса пароля отправлено на почту!')
+    else toast.success('Ссылка для сброса пароля отправлена!')
   }
 
   return (
