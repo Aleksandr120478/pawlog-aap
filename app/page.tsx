@@ -89,7 +89,7 @@ function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRe
       <div 
         key={day} 
         onClick={() => onDayClick(dateString)}
-        className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-400 hover:shadow-md ${
+        className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-400 hover:shadow-md hover:scale-[1.02] ${
           isSelected 
             ? 'border-blue-500 ring-2 ring-blue-500/50 bg-blue-50/30 dark:bg-blue-900/20' 
             : isToday 
@@ -109,6 +109,8 @@ function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRe
     )
   })
 
+  const selectedDayEvents = eventsByDate[selectedDate] || [];
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
       <div className="flex justify-between items-center mb-4">
@@ -123,8 +125,31 @@ function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRe
         {blanks}
         {days}
       </div>
-      <div className="mt-4 text-xs text-center text-gray-400">
-        Нажмите на день, чтобы добавить запись на эту дату
+
+      {/* Блок с событиями выбранного дня */}
+      <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+        <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+          📅 События на {selectedDate}
+        </h4>
+        {selectedDayEvents.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg text-center">
+            На этот день пока нет записей. Добавьте новую запись!
+          </p>
+        ) : (
+          <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+            {selectedDayEvents.map((e, idx) => (
+              <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">
+                    {RECORD_LABELS[e.type] || e.type}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{e.value}</p>
+                {e.note && <p className="text-xs text-gray-500 mt-1">{e.note}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -366,7 +391,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -493,15 +518,19 @@ export default function Home() {
     setRecordDate(todayLocal()); setRecordNote(''); setRecordNextDate('')
   }
 
-  // ФУНКЦИЯ КЛИКА ПО ДНЮ В КАЛЕНДАРЕ
   function handleCalendarDayClick(date: string) {
-    setEditingRecordId(null) // Выходим из режима редактирования, если были в нем
+    setEditingRecordId(null)
     setRecordType('weight')
     setRecordValue('')
     setRecordNote('')
     setRecordNextDate('')
-    setRecordDate(date) // Подставляем выбранную дату в форму
-    toast.success('Дата выбрана. Добавьте запись в форме!')
+    setRecordDate(date)
+    toast.success('Дата выбрана. Заполните форму!')
+    
+    // Прокрутка к форме на мобильных устройствах
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   async function saveRecord(e: React.FormEvent) {
@@ -837,7 +866,7 @@ export default function Home() {
           </form>
         </section>
 
-        <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
+        <section id="record-form" className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">{editingRecordId ? 'Редактировать запись' : 'Новая запись'}</h2>
           </div>
