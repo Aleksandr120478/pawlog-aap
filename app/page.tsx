@@ -49,7 +49,7 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-// ОБНОВЛЕННЫЙ КАЛЕНДАРЬ (Без модальных окон)
+// --- ОБНОВЛЕННЫЙ КАЛЕНДАРЬ ---
 function CalendarView({ 
   records, 
   selectedDate, 
@@ -87,7 +87,9 @@ function CalendarView({
     }
   })
 
-  const blanks = Array.from({ length: startingDay }, (_, i) => <div key={`blank-${i}`} className="aspect-square bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-lg"></div>)
+  const blanks = Array.from({ length: startingDay }, (_, i) => (
+    <div key={`blank-${i}`} className="h-16 md:h-20 bg-transparent border border-transparent"></div>
+  ))
   
   const days = Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1
@@ -100,21 +102,26 @@ function CalendarView({
       <div 
         key={day} 
         onClick={() => onDayClick(dateString)}
-        className={`aspect-square p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-500 hover:shadow-md ${
+        className={`h-16 md:h-20 p-1 border rounded-lg flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-500 hover:shadow-md overflow-hidden ${
           isSelected 
-            ? 'border-blue-500 ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-900/50' 
+            ? 'border-blue-500 ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30' 
             : isToday 
-              ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10' 
-              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+              ? 'border-blue-400 bg-blue-50/30 dark:bg-blue-900/10' 
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
         }`}
       >
-        <span className={`text-xs font-semibold ${isSelected || isToday ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{day}</span>
-        <div className="flex-1 overflow-y-auto space-y-0.5 mt-1 pr-0.5 custom-scrollbar pointer-events-none">
-          {dayEvents.map((e, idx) => (
-            <div key={idx} title={e.value} className={`text-[9px] leading-tight truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300' : 'bg-blue-200 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'}`}>
+        <span className={`text-xs font-semibold shrink-0 ${isSelected || isToday ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}`}>{day}</span>
+        
+        {/* Контейнер для событий. Ограничиваем высоту, чтобы не ломать ячейку */}
+        <div className="flex-1 mt-1 overflow-hidden w-full flex flex-col gap-0.5 pointer-events-none">
+          {dayEvents.slice(0, 2).map((e, idx) => (
+            <div key={idx} title={e.value} className={`text-[9px] leading-tight truncate w-full px-1 rounded-sm ${e.type === 'reminder' ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300' : 'bg-blue-200 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'}`}>
               {e.value}
             </div>
           ))}
+          {dayEvents.length > 2 && (
+            <div className="text-[8px] text-gray-400 font-medium pl-1">+{dayEvents.length - 2}</div>
+          )}
         </div>
       </div>
     )
@@ -123,14 +130,14 @@ function CalendarView({
   const selectedDayEvents = eventsByDate[selectedDate] || [];
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 w-full overflow-hidden">
       <div className="flex justify-between items-center mb-4">
-        <button onClick={prevMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">◀</button>
+        <button onClick={prevMonth} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">◀</button>
         <h3 className="font-bold text-gray-800 dark:text-white">{monthNames[month]} {year}</h3>
-        <button onClick={nextMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">▶</button>
+        <button onClick={nextMonth} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">▶</button>
       </div>
       <div className="grid grid-cols-7 gap-1 mb-2">
-        {weekDays.map(d => <div key={d} className="text-center text-xs font-semibold text-gray-400">{d}</div>)}
+        {weekDays.map(d => <div key={d} className="text-center text-[10px] md:text-xs font-semibold text-gray-400">{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-1">
         {blanks}
@@ -146,7 +153,7 @@ function CalendarView({
           {selectedDate && (
             <button 
               onClick={() => onAddClick(selectedDate)}
-              className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 transition"
+              className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 transition shadow-sm"
             >
               + Добавить
             </button>
@@ -175,7 +182,7 @@ function CalendarView({
           )
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            Нажмите на любой день в сетке выше, чтобы посмотреть его.
+            Нажмите на любой день в сетке выше.
           </p>
         )}
       </div>
@@ -437,7 +444,7 @@ export default function Home() {
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
-      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
       const { error: dbError } = await supabase.from('pet_documents').insert({
         pet_id: selectedPetId, name: file.name, url: data.publicUrl
       })
@@ -559,14 +566,13 @@ export default function Home() {
     setRecordNote('')
     setRecordNextDate('')
     setRecordDate(date)
-    setViewMode('list') // Переключаем на список, чтобы форма и записи были видны
+    setViewMode('list') 
     
-    // Прокрутка к форме
     setTimeout(() => {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
     }, 100)
     
-    toast.success(`Форма настроена на ${date}. Заполните данные!`)
+    toast.success(`Форма настроена на ${date}`)
   }
 
   async function saveRecord(e: React.FormEvent) {
