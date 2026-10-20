@@ -49,11 +49,19 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-// --- КОМПОНЕНТ КАЛЕНДАРЯ (ИНЛАЙН-ВЕРСИЯ) ---
-function CalendarView({ records, onAddRecord }: { records: HealthRecord[], onAddRecord: (date: string) => void }) {
+// ОБНОВЛЕННЫЙ КАЛЕНДАРЬ (Без модальных окон)
+function CalendarView({ 
+  records, 
+  selectedDate, 
+  onDayClick, 
+  onAddClick 
+}: { 
+  records: HealthRecord[], 
+  selectedDate: string, 
+  onDayClick: (date: string) => void,
+  onAddClick: (date: string) => void
+}) {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState(todayLocal()) // По умолчанию выбран сегодняшний день
-  
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
@@ -67,7 +75,6 @@ function CalendarView({ records, onAddRecord }: { records: HealthRecord[], onAdd
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
 
-  // Группируем события по датам
   const eventsByDate: Record<string, HealthRecord[]> = {}
   records.forEach(r => {
     if (r.record_date) {
@@ -80,7 +87,7 @@ function CalendarView({ records, onAddRecord }: { records: HealthRecord[], onAdd
     }
   })
 
-  const blanks = Array.from({ length: startingDay }, (_, i) => <div key={`blank-${i}`} className="h-16 md:h-24 bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-lg"></div>)
+  const blanks = Array.from({ length: startingDay }, (_, i) => <div key={`blank-${i}`} className="aspect-square bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-lg"></div>)
   
   const days = Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1
@@ -92,19 +99,19 @@ function CalendarView({ records, onAddRecord }: { records: HealthRecord[], onAdd
     return (
       <div 
         key={day} 
-        onClick={() => setSelectedDate(dateString)}
-        className={`h-16 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-400 hover:shadow-md ${
+        onClick={() => onDayClick(dateString)}
+        className={`aspect-square p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-500 hover:shadow-md ${
           isSelected 
-            ? 'border-blue-500 ring-2 ring-blue-500/50 bg-blue-50 dark:bg-blue-900/40' 
+            ? 'border-blue-500 ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-900/50' 
             : isToday 
               ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10' 
-              : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
         }`}
       >
-        <span className={`text-xs font-bold ${isSelected || isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
-        <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-1 custom-scrollbar pointer-events-none">
+        <span className={`text-xs font-semibold ${isSelected || isToday ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>{day}</span>
+        <div className="flex-1 overflow-y-auto space-y-0.5 mt-1 pr-0.5 custom-scrollbar pointer-events-none">
           {dayEvents.map((e, idx) => (
-            <div key={idx} title={e.value} className={`text-[10px] truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}>
+            <div key={idx} title={e.value} className={`text-[9px] leading-tight truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300' : 'bg-blue-200 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'}`}>
               {e.value}
             </div>
           ))}
@@ -113,7 +120,6 @@ function CalendarView({ records, onAddRecord }: { records: HealthRecord[], onAdd
     )
   })
 
-  // События для выбранного дня
   const selectedDayEvents = eventsByDate[selectedDate] || [];
 
   return (
@@ -131,38 +137,46 @@ function CalendarView({ records, onAddRecord }: { records: HealthRecord[], onAdd
         {days}
       </div>
 
-      {/* ИНЛАЙН-БЛОК ВЫБРАННОГО ДНЯ */}
-      <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-        <div className="flex justify-between items-center mb-3">
+      {/* Выбранный день и события */}
+      <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+        <div className="flex items-center justify-between mb-3">
           <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">
-            📅 Выбран день: {selectedDate}
+            📅 {selectedDate || 'Выберите день'}
           </h4>
-          <button 
-            onClick={() => onAddRecord(selectedDate)}
-            className="bg-green-600 hover:bg-green-700 text-white text-xs py-1.5 px-3 rounded-lg font-medium transition shadow-sm"
-          >
-            + Добавить запись
-          </button>
+          {selectedDate && (
+            <button 
+              onClick={() => onAddClick(selectedDate)}
+              className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 transition"
+            >
+              + Добавить
+            </button>
+          )}
         </div>
-
-        {selectedDayEvents.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg text-center">
-            На этот день пока нет записей.
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
-            {selectedDayEvents.map((e, idx) => (
-              <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase">
-                    {RECORD_LABELS[e.type] || e.type}
-                  </span>
+        
+        {selectedDate ? (
+          selectedDayEvents.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg text-center">
+              На этот день пока нет записей.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+              {selectedDayEvents.map((e, idx) => (
+                <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-xs font-bold uppercase ${e.type === 'reminder' ? 'text-orange-600' : 'text-blue-600'}`}>
+                      {RECORD_LABELS[e.type] || e.type}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{e.value}</p>
+                  {e.note && <p className="text-xs text-gray-500 mt-1">{e.note}</p>}
                 </div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{e.value}</p>
-                {e.note && <p className="text-xs text-gray-500 mt-1">{e.note}</p>}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+            Нажмите на любой день в сетке выше, чтобы посмотреть его.
+          </p>
         )}
       </div>
     </div>
@@ -186,6 +200,9 @@ export default function Home() {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   
+  // Стейт для календаря
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(todayLocal())
+
   const [shareEmail, setShareEmail] = useState('')
   const [sharingPetId, setSharingPetId] = useState<string | null>(null)
   
@@ -534,21 +551,22 @@ export default function Home() {
     setRecordDate(todayLocal()); setRecordNote(''); setRecordNextDate('')
   }
 
-  // --- ФУНКЦИЯ ДОБАВЛЕНИЯ ИЗ КАЛЕНДАРЯ ---
-  function handleAddRecordFromCalendar(date: string) {
+  // Обработка кнопки "Добавить" из календаря
+  function handleAddFromCalendar(date: string) {
     setEditingRecordId(null)
     setRecordType('weight')
     setRecordValue('')
     setRecordNote('')
     setRecordNextDate('')
     setRecordDate(date)
-    
-    toast.success('Дата подставлена в форму!')
+    setViewMode('list') // Переключаем на список, чтобы форма и записи были видны
     
     // Прокрутка к форме
-    if (typeof window !== 'undefined') {
+    setTimeout(() => {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
-    }
+    }, 100)
+    
+    toast.success(`Форма настроена на ${date}. Заполните данные!`)
   }
 
   async function saveRecord(e: React.FormEvent) {
@@ -1059,7 +1077,14 @@ export default function Home() {
                 </>
               )}
 
-              {viewMode === 'calendar' && <CalendarView records={records} onAddRecord={handleAddRecordFromCalendar} />}
+              {viewMode === 'calendar' && (
+                <CalendarView 
+                  records={records} 
+                  selectedDate={calendarSelectedDate}
+                  onDayClick={setCalendarSelectedDate}
+                  onAddClick={handleAddFromCalendar}
+                />
+              )}
 
               {viewMode === 'docs' && (
                 <div className="space-y-4">
