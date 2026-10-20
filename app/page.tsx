@@ -21,24 +21,11 @@ const RECORD_LABELS: Record<string, string> = {
   weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка', expense: 'Расход (₽)'
 }
 
-// Словарь иконок
 const SPECIES_ICONS: Record<string, string> = {
-  'Собака': '🐶',
-  'Кошка': '🐱',
-  'Попугай': '🦜',
-  'Хомяк': '🐹',
-  'Кролик': '🐰',
-  'Морская свинка': '🐹',
-  'Крыса': '🐀',
-  'Шиншилла': '🐭',
-  'Канарейка': '🐦',
-  'Хорёк': '🦦',
-  'Черепаха': '🐢',
-  'Ящерица': '🦎',
-  'Змея': '🐍',
-  'Ёжик': '🦔',
-  'Рыбка': '🐟',
-  'Другое': '🐾'
+  'Собака': '🐶', 'Кошка': '🐱', 'Попугай': '🦜', 'Хомяк': '🐹',
+  'Кролик': '🐰', 'Морская свинка': '🐹', 'Крыса': '🐀', 'Шиншилла': '🐭',
+  'Канарейка': '🐦', 'Хорёк': '🦦', 'Черепаха': '🐢', 'Ящерица': '🦎',
+  'Змея': '🐍', 'Ёжик': '🦔', 'Рыбка': '🐟', 'Другое': '🐾'
 }
 
 function todayLocal() {
@@ -140,11 +127,16 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
   
   const [showPremiumModal, setShowPremiumModal] = useState(false) 
+  const [showSettingsModal, setShowSettingsModal] = useState(false) // Окно настроек
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
   
   const [isPremium, setIsPremium] = useState(false)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+
+  // Стейт для смены пароля
+  const [newPassword, setNewPassword] = useState('')
+  const [updatingPassword, setUpdatingPassword] = useState(false)
 
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
   const [petName, setPetName] = useState('')
@@ -169,6 +161,15 @@ export default function Home() {
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
+
+  // Логика для виджета "Срочно" (события в ближайшие 7 дней)
+  const upcomingEvents = records.filter(r => {
+    if (!r.next_date) return false;
+    const today = new Date(todayLocal()).getTime();
+    const next = new Date(r.next_date).getTime();
+    const diffDays = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
+  })
 
   useEffect(() => {
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -259,6 +260,43 @@ export default function Home() {
     }
   }, [selectedPetId, fetchRecords, fetchDocuments])
 
+  async function updatePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newPassword || newPassword.length < 6) return toast.error('Пароль должен быть минимум 6 символов')
+    setUpdatingPassword(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setUpdatingPassword(false)
+    if (error) toast.error(error.message)
+    else {
+      toast.success('Пароль успешно изменен!')
+      setNewPassword('')
+      setShowSettingsModal(false)
+    }
+  }
+
+  function exportToCSV() {
+    if (!selectedPet || records.length === 0) return;
+    const headers = ['Дата', 'Тип', 'Значение', 'Заметка', 'Следующее напоминание'];
+    const rows = records.map(r => [
+      r.record_date,
+      RECORD_LABELS[r.type] || r.type,
+      r.value,
+      `"${(r.note || '').replace(/"/g, '""')}"`, // Экранируем кавычки в заметках
+      r.next_date || ''
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    // Добавляем BOM для корректного отображения кириллицы в Excel
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${selectedPet.name}_История.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   async function startFreeTrial() {
     if (!session) return
     const toastId = toast.loading('Активация Premium...')
@@ -284,7 +322,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -510,6 +548,48 @@ export default function Home() {
         </div>
       )}
 
+      {/* SETTINGS MODAL */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative p-6 md:p-8">
+            <button onClick={() => setShowSettingsModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Настройки профиля</h2>
+            
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ваш Email:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-100">{session.user.email}</p>
+            </div>
+
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-1">Ваш тариф:</p>
+              <p className="text-lg font-bold text-blue-900 dark:text-blue-200">
+                {isPremium ? 'Premium (Навсегда)' : (trialDaysLeft && trialDaysLeft > 0 ? `Пробный период (${trialDaysLeft} дн.)` : 'Бесплатный')}
+              </p>
+            </div>
+
+            <form onSubmit={updatePassword} className="space-y-4">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Сменить пароль</p>
+              <input 
+                type="password" 
+                placeholder="Новый пароль (мин. 6 символов)" 
+                value={newPassword} 
+                onChange={e => setNewPassword(e.target.value)} 
+                className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                required 
+                minLength={6}
+              />
+              <button 
+                type="submit" 
+                disabled={updatingPassword} 
+                className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition disabled:opacity-60"
+              >
+                {updatingPassword ? 'Сохранение...' : 'Обновить пароль'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showPremiumModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
@@ -590,7 +670,16 @@ export default function Home() {
             </button>
           )}
           <button onClick={toggleTheme} className="text-xl p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:scale-110 transition" title="Сменить тему">{isDark ? '☀️' : '🌙'}</button>
-          <span className="text-sm text-gray-400 dark:text-gray-500 hidden sm:inline">{session.user.email}</span>
+          
+          {/* Кнопка настроек (email) */}
+          <span 
+            onClick={() => setShowSettingsModal(true)} 
+            className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline cursor-pointer hover:text-blue-500 transition underline decoration-dashed underline-offset-4"
+            title="Настройки профиля"
+          >
+            {session.user.email}
+          </span>
+
           <button onClick={handleLogout} className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition">Выйти</button>
         </div>
       </header>
@@ -608,10 +697,7 @@ export default function Home() {
           <div className="space-y-2 mb-4">
             {pets.length === 0 ? (
               <div className="text-center p-6 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-dashed border-blue-200 dark:border-blue-800 mb-2">
-                
-                {/* ИКОНКА В ОНБОРДИНГЕ ТЕПЕРЬ ДИНАМИЧЕСКАЯ */}
                 <span className="text-4xl mb-2 block">{SPECIES_ICONS[petSpecies] || '🐾'}</span>
-                
                 <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Шаг 1. Добавьте питомца</p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Заполните форму ниже, чтобы начать вести дневник.</p>
                 <div className="text-2xl animate-bounce mt-2">↓</div>
@@ -663,7 +749,6 @@ export default function Home() {
               <input type="file" accept="image/*" onChange={e => setPetFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-gray-600 file:text-blue-700 dark:file:text-white hover:file:bg-blue-100" />
             </div>
             <div className="flex gap-2 mt-2">
-              {/* Динамическая иконка в кнопке */}
               <button type="submit" disabled={savingPet} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${editingPetId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {savingPet ? 'Сохранение...' : editingPetId ? 'Обновить' : `${SPECIES_ICONS[petSpecies] || '🐾'} Добавить`}
               </button>
@@ -737,8 +822,14 @@ export default function Home() {
                 <button onClick={() => setViewMode('docs')} className={`px-2 py-1 text-xs rounded-md transition ${viewMode === 'docs' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📁 Документы</button>
               </div>
             </div>
+            
             {selectedPet && records.length > 0 && viewMode === 'list' && (
-              <button onClick={() => window.print()} className="print:hidden text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-1">🖨️ PDF</button>
+              <div className="flex gap-2 print:hidden">
+                <button onClick={exportToCSV} className="text-sm bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition flex items-center gap-1" title="Скачать в Excel">
+                  📊 Excel
+                </button>
+                <button onClick={() => window.print()} className="text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-1">🖨️ PDF</button>
+              </div>
             )}
           </div>
 
@@ -765,6 +856,23 @@ export default function Home() {
             <>
               {viewMode === 'list' && (
                 <>
+                  {/* ВИДЖЕТ СРОЧНЫЕ СОБЫТИЯ */}
+                  {upcomingEvents.length > 0 && (
+                    <div className="mb-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 print:hidden">
+                      <h3 className="text-sm font-bold text-orange-800 dark:text-orange-300 mb-2 flex items-center gap-2">
+                        ⚠️ Внимание! Ближайшие события
+                      </h3>
+                      <ul className="space-y-2">
+                        {upcomingEvents.map(ev => (
+                          <li key={ev.id} className="flex justify-between items-center text-sm text-orange-700 dark:text-orange-400 border-b border-orange-100 dark:border-orange-800/50 pb-1 last:border-0 last:pb-0">
+                            <span className="font-medium truncate pr-2">{ev.value}</span>
+                            <span className="shrink-0 bg-white dark:bg-gray-800 px-2 py-0.5 rounded text-xs">{ev.next_date}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {totalExpenses > 0 && (
                     <div className="mb-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 p-3 rounded-xl flex justify-between items-center print:hidden">
                       <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Всего потрачено:</span>
