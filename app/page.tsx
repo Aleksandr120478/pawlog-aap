@@ -49,7 +49,7 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-function CalendarView({ records }: { records: HealthRecord[] }) {
+function CalendarView({ records, onDayClick, selectedDate }: { records: HealthRecord[], onDayClick: (date: string) => void, selectedDate: string }) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -83,11 +83,22 @@ function CalendarView({ records }: { records: HealthRecord[] }) {
     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const dayEvents = eventsByDate[dateString] || []
     const isToday = dateString === todayLocal()
+    const isSelected = dateString === selectedDate
 
     return (
-      <div key={day} className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col ${isToday ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
-        <span className={`text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
-        <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-1 custom-scrollbar">
+      <div 
+        key={day} 
+        onClick={() => onDayClick(dateString)}
+        className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-400 hover:shadow-md ${
+          isSelected 
+            ? 'border-blue-500 ring-2 ring-blue-500/50 bg-blue-50/30 dark:bg-blue-900/20' 
+            : isToday 
+              ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10' 
+              : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+        }`}
+      >
+        <span className={`text-xs font-medium ${isSelected || isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
+        <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-1 custom-scrollbar pointer-events-none">
           {dayEvents.map((e, idx) => (
             <div key={idx} title={e.value} className={`text-[10px] truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}>
               {e.value}
@@ -111,6 +122,9 @@ function CalendarView({ records }: { records: HealthRecord[] }) {
       <div className="grid grid-cols-7 gap-1">
         {blanks}
         {days}
+      </div>
+      <div className="mt-4 text-xs text-center text-gray-400">
+        Нажмите на день, чтобы добавить запись на эту дату
       </div>
     </div>
   )
@@ -365,7 +379,7 @@ export default function Home() {
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
-      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
       const { error: dbError } = await supabase.from('pet_documents').insert({
         pet_id: selectedPetId, name: file.name, url: data.publicUrl
       })
@@ -477,6 +491,17 @@ export default function Home() {
   function resetRecordForm() {
     setEditingRecordId(null); setRecordType('weight'); setRecordValue('')
     setRecordDate(todayLocal()); setRecordNote(''); setRecordNextDate('')
+  }
+
+  // ФУНКЦИЯ КЛИКА ПО ДНЮ В КАЛЕНДАРЕ
+  function handleCalendarDayClick(date: string) {
+    setEditingRecordId(null) // Выходим из режима редактирования, если были в нем
+    setRecordType('weight')
+    setRecordValue('')
+    setRecordNote('')
+    setRecordNextDate('')
+    setRecordDate(date) // Подставляем выбранную дату в форму
+    toast.success('Дата выбрана. Добавьте запись в форме!')
   }
 
   async function saveRecord(e: React.FormEvent) {
@@ -987,7 +1012,7 @@ export default function Home() {
                 </>
               )}
 
-              {viewMode === 'calendar' && <CalendarView records={records} />}
+              {viewMode === 'calendar' && <CalendarView records={records} onDayClick={handleCalendarDayClick} selectedDate={recordDate} />}
 
               {viewMode === 'docs' && (
                 <div className="space-y-4">
