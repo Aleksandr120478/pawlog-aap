@@ -373,14 +373,34 @@ export default function Home() {
             <input type="text" placeholder="Имя питомца" value={petName} onChange={e => setPetName(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
             <div className="flex gap-2">
               
-              {/* ОБНОВЛЕННЫЙ СПИСОК ЖИВОТНЫХ */}
+              {/* СПИСОК ЖИВОТНЫХ С КАТЕГОРИЯМИ */}
               <select value={petSpecies} onChange={e => setPetSpecies(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option>Собака</option>
-                <option>Кошка</option>
-                <option>Попугай</option>
-                <option>Хомяк</option>
-                <option>Хорёк</option>
-                <option>Другое</option>
+                <optgroup label="Популярные">
+                  <option>Собака</option>
+                  <option>Кошка</option>
+                </optgroup>
+                <optgroup label="Грызуны и кролики">
+                  <option>Хомяк</option>
+                  <option>Кролик</option>
+                  <option>Морская свинка</option>
+                  <option>Крыса</option>
+                  <option>Шиншилла</option>
+                </optgroup>
+                <optgroup label="Птицы">
+                  <option>Попугай</option>
+                  <option>Канарейка</option>
+                </optgroup>
+                <optgroup label="Экзотика">
+                  <option>Хорёк</option>
+                  <option>Черепаха</option>
+                  <option>Ящерица</option>
+                  <option>Змея</option>
+                  <option>Ёжик</option>
+                </optgroup>
+                <optgroup label="Другое">
+                  <option>Рыбка</option>
+                  <option>Другое</option>
+                </optgroup>
               </select>
 
               <input type="text" placeholder="Порода" value={petBreed} onChange={e => setPetBreed(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
