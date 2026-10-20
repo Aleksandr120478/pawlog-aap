@@ -21,7 +21,7 @@ const RECORD_LABELS: Record<string, string> = {
   weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка', expense: 'Расход (₽)'
 }
 
-// Словарь иконок для кнопки
+// Словарь иконок
 const SPECIES_ICONS: Record<string, string> = {
   'Собака': '🐶',
   'Кошка': '🐱',
@@ -298,7 +298,7 @@ export default function Home() {
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
       
-      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
       
       const { error: dbError } = await supabase.from('pet_documents').insert({
         pet_id: selectedPetId, name: file.name, url: data.publicUrl
@@ -608,7 +608,10 @@ export default function Home() {
           <div className="space-y-2 mb-4">
             {pets.length === 0 ? (
               <div className="text-center p-6 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-dashed border-blue-200 dark:border-blue-800 mb-2">
-                <span className="text-4xl mb-2 block">🐶</span>
+                
+                {/* ИКОНКА В ОНБОРДИНГЕ ТЕПЕРЬ ДИНАМИЧЕСКАЯ */}
+                <span className="text-4xl mb-2 block">{SPECIES_ICONS[petSpecies] || '🐾'}</span>
+                
                 <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Шаг 1. Добавьте питомца</p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Заполните форму ниже, чтобы начать вести дневник.</p>
                 <div className="text-2xl animate-bounce mt-2">↓</div>
