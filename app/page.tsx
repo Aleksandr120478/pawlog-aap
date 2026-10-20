@@ -21,6 +21,26 @@ const RECORD_LABELS: Record<string, string> = {
   weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка', expense: 'Расход (₽)'
 }
 
+// Словарь иконок для кнопки
+const SPECIES_ICONS: Record<string, string> = {
+  'Собака': '🐶',
+  'Кошка': '🐱',
+  'Попугай': '🦜',
+  'Хомяк': '🐹',
+  'Кролик': '🐰',
+  'Морская свинка': '🐹',
+  'Крыса': '🐀',
+  'Шиншилла': '🐭',
+  'Канарейка': '🐦',
+  'Хорёк': '🦦',
+  'Черепаха': '🐢',
+  'Ящерица': '🦎',
+  'Змея': '🐍',
+  'Ёжик': '🦔',
+  'Рыбка': '🐟',
+  'Другое': '🐾'
+}
+
 function todayLocal() {
   const d = new Date()
   const offset = d.getTimezoneOffset()
@@ -278,7 +298,7 @@ export default function Home() {
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
       
-      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
       
       const { error: dbError } = await supabase.from('pet_documents').insert({
         pet_id: selectedPetId, name: file.name, url: data.publicUrl
@@ -640,7 +660,10 @@ export default function Home() {
               <input type="file" accept="image/*" onChange={e => setPetFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-gray-600 file:text-blue-700 dark:file:text-white hover:file:bg-blue-100" />
             </div>
             <div className="flex gap-2 mt-2">
-              <button type="submit" disabled={savingPet} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${editingPetId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}>{savingPet ? 'Сохранение...' : editingPetId ? 'Обновить' : '+ Добавить'}</button>
+              {/* Динамическая иконка в кнопке */}
+              <button type="submit" disabled={savingPet} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${editingPetId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {savingPet ? 'Сохранение...' : editingPetId ? 'Обновить' : `${SPECIES_ICONS[petSpecies] || '🐾'} Добавить`}
+              </button>
               {editingPetId && <button type="button" onClick={resetPetForm} className="px-4 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-sm font-medium hover:bg-gray-300">Отмена</button>}
             </div>
           </form>
