@@ -13,12 +13,12 @@ type HealthRecord = {
   id: string; pet_id: string; type: string; value: string;
   note: string | null; record_date: string; next_date: string | null;
 }
+type PetDocument = {
+  id: string; pet_id: string; name: string; url: string; created_at: string;
+}
 
 const RECORD_LABELS: Record<string, string> = {
-  weight: 'Вес', 
-  vaccine: 'Прививка', 
-  medication: 'Лекарство',
-  note: 'Заметка'
+  weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка'
 }
 
 function todayLocal() {
@@ -27,7 +27,21 @@ function todayLocal() {
   return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
 }
 
-// Компонент календаря
+// Функция подсчета возраста
+function calculateAge(birthDate: string | null) {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
+    years--;
+    months += 12;
+  }
+  if (years === 0 && months === 0) return 'Меньше месяца';
+  return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
+}
+
 function CalendarView({ records }: { records: HealthRecord[] }) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const year = currentDate.getFullYear()
@@ -100,11 +114,12 @@ export default function Home() {
   const [pets, setPets] = useState<Pet[]>([])
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null)
   const [records, setRecords] = useState<HealthRecord[]>([])
+  const [documents, setDocuments] = useState<PetDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [savingPet, setSavingPet] = useState(false)
   const [savingRecord, setSavingRecord] = useState(false)
   const [isDark, setIsDark] = useState(false)
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
 
   // Форма питомца
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
@@ -164,6 +179,12 @@ export default function Home() {
     else setRecords(data || [])
   }, [])
 
+  const fetchDocuments = useCallback(async (petId: string) => {
+    const { data, error } = await supabase.from('pet_documents').select('*').eq('pet_id', petId).order('created_at', { ascending: false })
+    if (error) toast.error(error.message)
+    else setDocuments(data || [])
+  }, [])
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -178,17 +199,56 @@ export default function Home() {
   }, [fetchPets])
 
   useEffect(() => {
-    if (selectedPetId) fetchRecords(selectedPetId)
-    else setRecords([])
-  }, [selectedPetId, fetchRecords])
+    if (selectedPetId) {
+      fetchRecords(selectedPetId)
+      fetchDocuments(selectedPetId)
+    } else {
+      setRecords([])
+      setDocuments([])
+    }
+  }, [selectedPetId, fetchRecords, fetchDocuments])
 
   async function uploadAvatar(file: File) {
     const fileExt = file.name.split('.').pop()
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
+  }
+
+  async function uploadDocument(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !selectedPetId) return
+    const toastId = toast.loading('Загрузка документа...')
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random()}.${fileExt}`
+      const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
+      if (uploadError) throw uploadError
+      
+      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
+      
+      const { error: dbError } = await supabase.from('pet_documents').insert({
+        pet_id: selectedPetId, name: file.name, url: data.publicUrl
+      })
+      if (dbError) throw dbError
+      
+      toast.success('Документ загружен!', { id: toastId })
+      fetchDocuments(selectedPetId)
+    } catch (error: any) {
+      toast.error('Ошибка: ' + error.message, { id: toastId })
+    }
+    e.target.value = ''
+  }
+
+  async function deleteDocument(docId: string, url: string) {
+    if (!confirm('Удалить этот документ?')) return
+    const fileName = url.split('/').pop()
+    if (fileName) await supabase.storage.from('documents').remove([fileName])
+    await supabase.from('pet_documents').delete().eq('id', docId)
+    setDocuments(prev => prev.filter(d => d.id !== docId))
+    toast.success('Документ удален')
   }
 
   function startEditingPet(pet: Pet) {
@@ -286,7 +346,7 @@ export default function Home() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    setPets([]); setSelectedPetId(null); setRecords([]); resetPetForm(); resetRecordForm()
+    setPets([]); setSelectedPetId(null); setRecords([]); setDocuments([]); resetPetForm(); resetRecordForm()
   }
 
   function getReminderStatus(nextDate: string | null) {
@@ -357,7 +417,7 @@ export default function Home() {
                 </div>
                 <div className="flex-1 text-left px-3 py-2">
                   <span className="font-medium text-gray-800 dark:text-gray-100 block">{pet.name}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{pet.species} {pet.breed ? `• ${pet.breed}` : ''}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{pet.species} {pet.breed ? `• ${pet.breed}` : ''} {pet.birth_date ? `• ${calculateAge(pet.birth_date)}` : ''}</span>
                 </div>
                 <div className="flex gap-1 pr-2">
                   <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-blue-500 transition" title="Редактировать">✏️</button>
@@ -372,42 +432,17 @@ export default function Home() {
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">{editingPetId ? 'Редактировать профиль' : 'Добавить питомца'}</p>
             <input type="text" placeholder="Имя питомца" value={petName} onChange={e => setPetName(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
             <div className="flex gap-2">
-              
-              {/* СПИСОК ЖИВОТНЫХ С КАТЕГОРИЯМИ */}
               <select value={petSpecies} onChange={e => setPetSpecies(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <optgroup label="Популярные">
-                  <option>Собака</option>
-                  <option>Кошка</option>
-                </optgroup>
-                <optgroup label="Грызуны и кролики">
-                  <option>Хомяк</option>
-                  <option>Кролик</option>
-                  <option>Морская свинка</option>
-                  <option>Крыса</option>
-                  <option>Шиншилла</option>
-                </optgroup>
-                <optgroup label="Птицы">
-                  <option>Попугай</option>
-                  <option>Канарейка</option>
-                </optgroup>
-                <optgroup label="Экзотика">
-                  <option>Хорёк</option>
-                  <option>Черепаха</option>
-                  <option>Ящерица</option>
-                  <option>Змея</option>
-                  <option>Ёжик</option>
-                </optgroup>
-                <optgroup label="Другое">
-                  <option>Рыбка</option>
-                  <option>Другое</option>
-                </optgroup>
+                <optgroup label="Популярные"><option>Собака</option><option>Кошка</option></optgroup>
+                <optgroup label="Грызуны"><option>Хомяк</option><option>Кролик</option><option>Морская свинка</option><option>Крыса</option><option>Шиншилла</option></optgroup>
+                <optgroup label="Птицы"><option>Попугай</option><option>Канарейка</option></optgroup>
+                <optgroup label="Экзотика"><option>Хорёк</option><option>Черепаха</option><option>Ящерица</option><option>Змея</option><option>Ёжик</option></optgroup>
+                <optgroup label="Другое"><option>Рыбка</option><option>Другое</option></optgroup>
               </select>
-
               <input type="text" placeholder="Порода" value={petBreed} onChange={e => setPetBreed(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
             </div>
             <input type="date" value={petBirthDate} onChange={e => setPetBirthDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300" />
             
-            {/* МЕДИЦИНСКАЯ КАРТА */}
             <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700 space-y-2 mt-2">
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Медицинская карта</p>
               <input type="text" placeholder="Аллергии" value={petAllergies} onChange={e => setPetAllergies(e.target.value)} className="w-full px-2 py-1.5 border dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
@@ -470,11 +505,12 @@ export default function Home() {
         {/* ПРАВАЯ КОЛОНКА */}
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:border-none print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 print:mb-8">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-semibold text-gray-700 dark:text-gray-200">{selectedPet ? selectedPet.name : 'Лента'}</h2>
               <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 print:hidden">
                 <button onClick={() => setViewMode('list')} className={`px-2 py-1 text-xs rounded-md transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📋 Список</button>
                 <button onClick={() => setViewMode('calendar')} className={`px-2 py-1 text-xs rounded-md transition ${viewMode === 'calendar' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📅 Календарь</button>
+                <button onClick={() => setViewMode('docs')} className={`px-2 py-1 text-xs rounded-md transition ${viewMode === 'docs' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📁 Документы</button>
               </div>
             </div>
             {selectedPet && records.length > 0 && viewMode === 'list' && (
@@ -488,7 +524,7 @@ export default function Home() {
               {selectedPet?.avatar_url && <img src={selectedPet.avatar_url} className="w-16 h-16 rounded-full object-cover" />}
               <div>
                 <h1 className="text-2xl font-bold">{selectedPet?.name}</h1>
-                <p className="text-sm text-gray-500">{selectedPet?.species} {selectedPet?.breed ? `• ${selectedPet.breed}` : ''} {selectedPet?.birth_date ? ` • Дата рождения: ${selectedPet.birth_date}` : ''}</p>
+                <p className="text-sm text-gray-500">{selectedPet?.species} {selectedPet?.breed ? `• ${selectedPet.breed}` : ''} {selectedPet?.birth_date ? ` • Возраст: ${calculateAge(selectedPet.birth_date)}` : ''}</p>
               </div>
             </div>
             
@@ -504,7 +540,7 @@ export default function Home() {
 
           {selectedPet ? (
             <>
-              {viewMode === 'list' ? (
+              {viewMode === 'list' && (
                 <>
                   {weightData.length > 1 && (
                     <div className="mb-6 print:hidden bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
@@ -549,8 +585,40 @@ export default function Home() {
                     })}
                   </div>
                 </>
-              ) : (
-                <CalendarView records={records} />
+              )}
+
+              {viewMode === 'calendar' && <CalendarView records={records} />}
+
+              {viewMode === 'docs' && (
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center hover:bg-gray-50 dark:hover:bg-gray-800/50 transition relative">
+                    <input type="file" onChange={uploadDocument} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,image/*" />
+                    <div className="text-gray-500 dark:text-gray-400">
+                      <p className="text-2xl mb-2">📄</p>
+                      <p className="font-medium text-sm">Нажмите или перетащите файл</p>
+                      <p className="text-xs mt-1">PDF, JPG, PNG (до 5 МБ)</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                    {documents.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Нет загруженных документов</p>}
+                    {documents.map(doc => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-lg shadow-sm">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <span className="text-xl">📎</span>
+                          <div className="truncate">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{doc.name}</p>
+                            <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('ru-RU')}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 p-1 text-sm font-medium">Открыть</a>
+                          <button onClick={() => deleteDocument(doc.id, doc.url)} className="text-red-400 hover:text-red-600 p-1 text-sm">Удалить</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </>
           ) : <p className="text-sm text-gray-400 dark:text-gray-500">Выберите питомца</p>}
