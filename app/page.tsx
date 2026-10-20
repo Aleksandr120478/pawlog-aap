@@ -18,11 +18,7 @@ type PetDocument = {
 }
 
 const RECORD_LABELS: Record<string, string> = {
-  weight: 'Вес', 
-  vaccine: 'Прививка', 
-  medication: 'Лекарство',
-  note: 'Заметка',
-  expense: 'Расход (₽)'
+  weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка', expense: 'Расход (₽)'
 }
 
 function todayLocal() {
@@ -31,7 +27,6 @@ function todayLocal() {
   return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
 }
 
-// Подсчет возраста
 function calculateAge(birthDate: string | null) {
   if (!birthDate) return null;
   const birth = new Date(birthDate);
@@ -124,9 +119,14 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'docs'>('list')
   
-  // Стейт для окна Premium
+  // Стейт для Premium и Пробного периода
   const [showPremiumModal, setShowPremiumModal] = useState(false) 
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
+  
+  // Стейт статуса пользователя (Премиум/Триал)
+  const [isPremium, setIsPremium] = useState(false)
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
 
   // Форма питомца
   const [editingPetId, setEditingPetId] = useState<string | null>(null)
@@ -153,6 +153,9 @@ export default function Home() {
 
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
+  
+  // Проверка, есть ли у пользователя доступ к премиуму (купил или активен триал)
+  const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
 
   useEffect(() => {
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -193,18 +196,47 @@ export default function Home() {
     else setDocuments(data || [])
   }, [])
 
+  // Загрузка статуса пользователя
+  const fetchUserStatus = useCallback(async (userId: string) => {
+    let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
+    
+    // Если записи нет, создаем ее
+    if (error && error.code === 'PGRST116') {
+      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
+      if (!insertError) data = newData
+    }
+
+    if (data) {
+      setIsPremium(data.is_premium || false)
+      if (data.trial_ends_at) {
+        setTrialEndsAt(data.trial_ends_at)
+        const end = new Date(data.trial_ends_at).getTime()
+        const now = new Date().getTime()
+        const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+        setTrialDaysLeft(days > 0 ? days : 0)
+      }
+    }
+  }, [])
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (session) fetchPets().finally(() => setLoading(false))
+      if (session) {
+        fetchPets()
+        fetchUserStatus(session.user.id)
+        setLoading(false)
+      }
       else setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setSession(session)
-      if (session) fetchPets()
+      if (session) {
+        fetchPets()
+        fetchUserStatus(session.user.id)
+      }
     })
     return () => subscription.unsubscribe()
-  }, [fetchPets])
+  }, [fetchPets, fetchUserStatus])
 
   useEffect(() => {
     if (selectedPetId) {
@@ -215,6 +247,27 @@ export default function Home() {
       setDocuments([])
     }
   }, [selectedPetId, fetchRecords, fetchDocuments])
+
+  // Активация пробного периода
+  async function startFreeTrial() {
+    if (!session) return
+    const toastId = toast.loading('Активация Premium...')
+    
+    const trialEnd = new Date()
+    trialEnd.setDate(trialEnd.getDate() + 7) // 7 дней
+
+    const { error } = await supabase.from('user_status').update({
+      trial_ends_at: trialEnd.toISOString()
+    }).eq('user_id', session.user.id)
+
+    if (error) {
+      toast.error(error.message, { id: toastId })
+    } else {
+      toast.success('Пробный период на 7 дней активирован!', { id: toastId })
+      setShowPremiumModal(false)
+      fetchUserStatus(session.user.id)
+    }
+  }
 
   async function uploadAvatar(file: File) {
     const fileExt = file.name.split('.').pop()
@@ -275,7 +328,8 @@ export default function Home() {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
     
-    if (!editingPetId && pets.length >= 1) {
+    // Лимит проверяется только если нет премиума/триала
+    if (!hasPremiumAccess && !editingPetId && pets.length >= 1) {
       setShowPremiumModal(true)
       return
     }
@@ -322,7 +376,7 @@ export default function Home() {
     else if (selectedPet.species === 'Кошка') templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
     else return toast.error('Шаблоны доступны только для собак и кошек')
 
-    if (records.length + templates.length > 10) {
+    if (!hasPremiumAccess && records.length + templates.length > 10) {
       setShowPremiumModal(true)
       return
     }
@@ -333,13 +387,8 @@ export default function Home() {
     const nextDateString = nextDate.toISOString().split('T')[0]
 
     const recordsToInsert = templates.map(vaccineName => ({
-      pet_id: selectedPet.id,
-      type: 'vaccine',
-      value: vaccineName,
-      record_date: todayLocal(),
-      next_date: nextDateString,
-      note: 'Добавлено автоматически',
-      reminder_sent: false
+      pet_id: selectedPet.id, type: 'vaccine', value: vaccineName,
+      record_date: todayLocal(), next_date: nextDateString, note: 'Добавлено автоматически', reminder_sent: false
     }))
 
     const { error } = await supabase.from('health_records').insert(recordsToInsert)
@@ -367,7 +416,7 @@ export default function Home() {
       return toast.error('Введите число, например 5.2 или 1500')
     }
 
-    if (!editingRecordId && records.length >= 10) {
+    if (!hasPremiumAccess && !editingRecordId && records.length >= 10) {
       setShowPremiumModal(true)
       return
     }
@@ -398,6 +447,7 @@ export default function Home() {
   async function handleLogout() {
     await supabase.auth.signOut()
     setPets([]); setSelectedPetId(null); setRecords([]); setDocuments([]); resetPetForm(); resetRecordForm()
+    setIsPremium(false); setTrialEndsAt(null); setTrialDaysLeft(null)
   }
 
   function getReminderStatus(nextDate: string | null) {
@@ -444,6 +494,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
       
+      {/* ПЛАШКА ТРИАЛА */}
+      {trialDaysLeft !== null && trialDaysLeft > 0 && (
+        <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-center py-2 text-sm font-medium print:hidden flex justify-center items-center gap-2 shadow-sm">
+          <span>✨ У вас активен Premium (Пробный период)! Осталось дней: {trialDaysLeft}</span>
+          <button onClick={() => setShowPremiumModal(true)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-xs transition">Продлить</button>
+        </div>
+      )}
+
       {/* PREMIUM MODAL */}
       {showPremiumModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
@@ -462,6 +520,22 @@ export default function Home() {
                 <li className="flex items-center gap-3">✨ Автоматические графики прививок</li>
                 <li className="flex items-center gap-3">✨ Приоритетная поддержка</li>
               </ul>
+
+              {/* Кнопка пробного периода (показываем, только если триала еще не было) */}
+              {trialDaysLeft === null && (
+                <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-center">
+                  <p className="text-sm text-green-800 dark:text-green-300 font-medium mb-3">Не уверены? Попробуйте все функции бесплатно!</p>
+                  <button onClick={startFreeTrial} className="w-full bg-green-600 text-white py-2.5 rounded-lg font-bold hover:bg-green-700 transition shadow-md shadow-green-500/30">
+                    Попробовать 7 дней бесплатно
+                  </button>
+                </div>
+              )}
+
+              <div className="relative flex py-2 items-center mb-4">
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">Или оформите подписку</span>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+              </div>
 
               {/* Переключатель тарифов */}
               <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-6">
@@ -484,19 +558,18 @@ export default function Home() {
                   <>
                     <span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span>
                     <span className="text-gray-500 dark:text-gray-400"> / мес</span>
-                    <p className="text-xs text-gray-400 mt-1">Оплата каждый месяц</p>
                   </>
                 ) : (
                   <>
                     <span className="text-4xl font-bold text-gray-900 dark:text-white">1190 ₽</span>
                     <span className="text-gray-500 dark:text-gray-400"> / год</span>
-                    <p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год (всего 99 ₽/мес)</p>
+                    <p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год</p>
                   </>
                 )}
               </div>
               
-              <button onClick={() => { toast.success(`Выбран тариф: ${billingPeriod === 'monthly' ? 'Помесячно' : 'На год'}`); setShowPremiumModal(false); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
-                Оформить подписку
+              <button onClick={() => { toast.success('Здесь будет оплата ЮKassa!'); setShowPremiumModal(false); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
+                Оплатить
               </button>
             </div>
           </div>
@@ -506,6 +579,11 @@ export default function Home() {
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
         <h1 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">🐾 PawLog</h1>
         <div className="flex items-center gap-4">
+          {!hasPremiumAccess && (
+            <button onClick={() => setShowPremiumModal(true)} className="hidden sm:block text-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-full font-medium hover:opacity-90 transition">
+              Получить Premium
+            </button>
+          )}
           <button onClick={toggleTheme} className="text-xl p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:scale-110 transition" title="Сменить тему">{isDark ? '☀️' : '🌙'}</button>
           <span className="text-sm text-gray-400 dark:text-gray-500 hidden sm:inline">{session.user.email}</span>
           <button onClick={handleLogout} className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition">Выйти</button>
@@ -518,7 +596,9 @@ export default function Home() {
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">Мои питомцы</h2>
-            <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-full font-medium">Лимит: {pets.length}/1</span>
+            {!hasPremiumAccess && (
+              <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-full font-medium">Лимит: {pets.length}/1</span>
+            )}
           </div>
           <div className="space-y-2 mb-4">
             {pets.map(pet => (
@@ -582,7 +662,9 @@ export default function Home() {
             <form onSubmit={saveRecord} className="space-y-3">
               <div className="flex justify-between items-center mb-2">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Для: <span className="font-medium text-gray-700 dark:text-gray-200">{selectedPet.name}</span></p>
-                <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/10</span>
+                {!hasPremiumAccess && (
+                  <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/10</span>
+                )}
               </div>
               
               {(selectedPet.species === 'Собака' || selectedPet.species === 'Кошка') && !editingRecordId && (
