@@ -364,7 +364,8 @@ export default function Home() {
     else if (selectedPet.species === 'Кошка') templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
     else return toast.error('Шаблоны доступны только для собак и кошек')
 
-    if (!hasPremiumAccess && records.length + templates.length > 30) {
+    // ЛИМИТ ИЗМЕНЕН НА 20
+    if (!hasPremiumAccess && records.length + templates.length > 20) {
       setShowPremiumModal(true)
       return
     }
@@ -419,7 +420,9 @@ export default function Home() {
     if ((recordType === 'weight' || recordType === 'expense') && !/^\d+(\.\d+)?$/.test(trimmed)) {
       return toast.error('Введите число, например 5.2 или 1500')
     }
-    if (!hasPremiumAccess && !editingRecordId && records.length >= 30) {
+    
+    // ЛИМИТ ИЗМЕНЕН НА 20
+    if (!hasPremiumAccess && !editingRecordId && records.length >= 20) {
       setShowPremiumModal(true)
       return
     }
@@ -491,7 +494,10 @@ export default function Home() {
         )}
 
         <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
+        
+        {/* В PremiumModal мы передаем информацию о лимитах, чтобы пользователь видел корректные цифры */}
         <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} />
+        
         <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
 
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
@@ -592,7 +598,7 @@ export default function Home() {
               <form onSubmit={saveRecord} className="space-y-3">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Для: <span className="font-medium text-gray-700 dark:text-gray-200">{selectedPet.name}</span></p>
-                  {!hasPremiumAccess && <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/30</span>}
+                  {!hasPremiumAccess && <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/20</span>}
                 </div>
                 {(selectedPet.species === 'Собака' || selectedPet.species === 'Кошка') && !editingRecordId && (
                   <button type="button" onClick={addVaccineTemplates} className="w-full bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-xs py-2 rounded-lg border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition flex items-center justify-center gap-1 font-medium">🪄 Добавить график прививок</button>
