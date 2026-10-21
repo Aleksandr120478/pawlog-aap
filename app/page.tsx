@@ -214,8 +214,11 @@ export default function Home() {
   
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(todayLocal())
 
+  // Состояние для списка тех, с кем поделились
+  const [petShares, setPetShares] = useState<any[]>([])
   const [shareEmail, setShareEmail] = useState('')
   const [sharingPetId, setSharingPetId] = useState<string | null>(null)
+  
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
   
   const [isPremium, setIsPremium] = useState(false)
@@ -345,7 +348,14 @@ export default function Home() {
     }
   }, [selectedPetId, fetchRecords, fetchDocuments])
 
-  async function handleShare() {
+  // Загрузка списка тех, с кем поделились
+  async function fetchPetShares(petId: string) {
+    const { data } = await supabase.from('pet_shares').select('*').eq('pet_id', petId)
+    setPetShares(data || [])
+  }
+
+  async function handleShare(e: React.FormEvent) {
+    e.preventDefault()
     const cleanEmail = shareEmail.trim().toLowerCase();
     if (!cleanEmail || !sharingPetId) return toast.error('Введите email')
     if (cleanEmail === session.user.email.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой')
@@ -358,15 +368,26 @@ export default function Home() {
     const { error } = await supabase.from('pet_shares').insert({ pet_id: sharingPetId, shared_with_email: cleanEmail })
     if (error) toast.error(error.message, { id: toastId })
     else {
-      toast.success('Доступ успешно предоставлен!', { id: toastId })
-      setShowShareModal(false)
-      setShareEmail('')
+      toast.success('Доступ предоставлен!', { id: toastId })
+      setShareEmail('') // Очищаем поле ввода, чтобы можно было добавить еще
+      fetchPetShares(sharingPetId) // Обновляем список
+    }
+  }
+
+  async function removeShare(shareId: string) {
+    if (!sharingPetId) return
+    const { error } = await supabase.from('pet_shares').delete().eq('id', shareId)
+    if (error) toast.error(error.message)
+    else {
+      toast.success('Доступ отозван')
+      fetchPetShares(sharingPetId)
     }
   }
 
   function openShareModal(petId: string) {
     setSharingPetId(petId)
     setShareEmail('')
+    fetchPetShares(petId)
     setShowShareModal(true)
   }
 
@@ -722,15 +743,51 @@ export default function Home() {
           </div>
         )}
 
+        {/* МОДАЛКА ПОДЕЛИТЬСЯ (ОБНОВЛЕНА) */}
         {showShareModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-sm w-full p-6 md:p-8 border border-gray-100 dark:border-gray-700 relative">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 border border-gray-100 dark:border-gray-700 relative">
               <button onClick={() => setShowShareModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
+              
               <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Поделиться доступом</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Введите email члена семьи, чтобы он мог видеть и редактировать дневник этого питомца.</p>
-              <form onSubmit={(e) => { e.preventDefault(); handleShare(); }} className="space-y-4">
-                <input type="email" placeholder="Email (например, wife@mail.ru)" value={shareEmail} onChange={e => setShareEmail(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" required />
-                <button type="submit" className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Пригласить</button>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Члены семьи смогут видеть и редактировать дневник этого питомца.</p>
+              
+              {/* Список тех, у кого уже есть доступ */}
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Уже имеют доступ:</h3>
+                {petShares.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">Пока никого нет</p>
+                ) : (
+                  <ul className="space-y-2 max-h-[20vh] overflow-y-auto pr-1">
+                    {petShares.map(share => (
+                      <li key={share.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate pr-2">{share.shared_with_email}</span>
+                        <button 
+                          onClick={() => removeShare(share.id)} 
+                          className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 transition"
+                        >
+                          Отозвать
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Форма добавления */}
+              <form onSubmit={handleShare} className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase">Добавить нового члена семьи:</h3>
+                <input 
+                  type="email" 
+                  placeholder="Email (например, husband@mail.ru)" 
+                  value={shareEmail} 
+                  onChange={e => setShareEmail(e.target.value)} 
+                  className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" 
+                  required 
+                />
+                <button type="submit" className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">
+                  Пригласить
+                </button>
               </form>
             </div>
           </div>
