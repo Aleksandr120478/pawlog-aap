@@ -3,32 +3,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import AuthForm from '../components/AuthForm'
-
-type Pet = { 
-  id: string; name: string; species: string | null;
-  breed: string | null; birth_date: string | null; avatar_url: string | null;
-  allergies: string | null; chronic_diseases: string | null; food: string | null; vet_contact: string | null;
-  user_id: string;
-}
-type HealthRecord = {
-  id: string; pet_id: string; type: string; value: string;
-  note: string | null; record_date: string; next_date: string | null;
-}
-type PetDocument = {
-  id: string; pet_id: string; name: string; url: string; created_at: string;
-}
-
-const RECORD_LABELS: Record<string, string> = {
-  weight: 'Вес', vaccine: 'Прививка', medication: 'Лекарство', note: 'Заметка', expense: 'Расход (₽)'
-}
-
-const SPECIES_ICONS: Record<string, string> = {
-  'Собака': '🐶', 'Кошка': '🐱', 'Попугай': '🦜', 'Хомяк': '🐹',
-  'Кролик': '🐰', 'Морская свинка': '🐹', 'Крыса': '🐀', 'Шиншилла': '🐭',
-  'Канарейка': '🐦', 'Хорёк': '🦦', 'Черепаха': '🐢', 'Ящерица': '🦎',
-  'Змея': '🐍', 'Ёжик': '🦔', 'Рыбка': '🐟', 'Другое': '🐾'
-}
+import LandingPage from '../components/LandingPage'
+import CalendarModal from '../components/CalendarModal'
+import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals'
+import { Pet, HealthRecord, PetDocument, RECORD_LABELS, SPECIES_ICONS } from '../components/types'
 
 function todayLocal() {
   const d = new Date()
@@ -47,151 +25,6 @@ function calculateAge(birthDate: string | null) {
   }
   if (years === 0 && months === 0) return 'Меньше месяца';
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
-}
-
-function CalendarModal({ 
-  records, 
-  selectedDate, 
-  onDayClick, 
-  onAddClick,
-  onClose 
-}: { 
-  records: HealthRecord[], 
-  selectedDate: string, 
-  onDayClick: (date: string) => void,
-  onAddClick: (date: string) => void,
-  onClose: () => void
-}) {
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const year = currentDate.getFullYear()
-  const month = currentDate.getMonth()
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const firstDayOfMonth = new Date(year, month, 1).getDay()
-  const startingDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1
-
-  const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
-  const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
-
-  const eventsByDate: Record<string, HealthRecord[]> = {}
-  records.forEach(r => {
-    if (r.record_date) {
-      eventsByDate[r.record_date] = eventsByDate[r.record_date] || []
-      eventsByDate[r.record_date].push(r)
-    }
-    if (r.next_date) {
-      eventsByDate[r.next_date] = eventsByDate[r.next_date] || []
-      eventsByDate[r.next_date].push({ ...r, type: 'reminder', value: 'Напоминание: ' + r.value })
-    }
-  })
-
-  const blanks = Array.from({ length: startingDay }, (_, i) => (
-    <div key={`blank-${i}`} className="min-h-[120px] bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-xl"></div>
-  ))
-  
-  const days = Array.from({ length: daysInMonth }, (_, i) => {
-    const day = i + 1
-    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const dayEvents = eventsByDate[dateString] || []
-    const isToday = dateString === todayLocal()
-    const isSelected = dateString === selectedDate
-
-    return (
-      <div 
-        key={day} 
-        onClick={() => onDayClick(dateString)}
-        className={`min-h-[120px] p-2 border rounded-xl flex flex-col cursor-pointer transition-all duration-200 hover:border-rose-400 hover:shadow-md overflow-hidden ${
-          isSelected 
-            ? 'border-rose-500 ring-2 ring-rose-500 bg-rose-50 dark:bg-rose-900/30' 
-            : isToday 
-              ? 'border-rose-400 bg-rose-50/30 dark:bg-rose-900/10' 
-              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-        }`}
-      >
-        <span className={`text-sm font-bold shrink-0 ${isSelected || isToday ? 'text-rose-700 dark:text-rose-300' : 'text-gray-600 dark:text-gray-400'}`}>{day}</span>
-        
-        <div className="flex-1 mt-2 overflow-y-auto w-full flex flex-col gap-1 pointer-events-none custom-scrollbar">
-          {dayEvents.map((e, idx) => (
-            <div key={idx} title={e.value} className={`text-[10px] leading-tight truncate w-full px-1.5 py-1 rounded-md ${e.type === 'reminder' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'}`}>
-              {e.value}
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  })
-
-  const selectedDayEvents = eventsByDate[selectedDate] || [];
-
-  return (
-    <div className="fixed inset-0 z-[100] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
-      <div className="max-w-7xl mx-auto p-4 md:p-8">
-        
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">Календарь событий</h2>
-          <button onClick={onClose} className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition shadow-sm font-medium">
-            ✕ Закрыть
-          </button>
-        </div>
-
-        <div className="flex flex-col xl:flex-row gap-6">
-          <div className="flex-1 bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex justify-between items-center mb-6">
-              <button onClick={prevMonth} className="p-2 md:px-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition font-medium text-sm">← Пред. месяц</button>
-              <h3 className="font-bold text-xl text-gray-800 dark:text-white">{monthNames[month]} {year}</h3>
-              <button onClick={nextMonth} className="p-2 md:px-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition font-medium text-sm">След. месяц →</button>
-            </div>
-            <div className="grid grid-cols-7 gap-2 mb-2">
-              {weekDays.map(d => <div key={d} className="text-center text-xs font-semibold text-gray-400 pb-2">{d}</div>)}
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-              {blanks}
-              {days}
-            </div>
-          </div>
-
-          <div className="w-full xl:w-80 shrink-0 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
-            <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1">
-              {selectedDate || 'Выберите день'}
-            </h4>
-            <p className="text-sm text-gray-500 mb-6 border-b pb-4">События на этот день</p>
-            
-            <div className="flex-1 overflow-y-auto max-h-[50vh] pr-1 space-y-3">
-              {selectedDate ? (
-                selectedDayEvents.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-6 bg-gray-50 dark:bg-gray-900/50 rounded-xl">Нет записей</p>
-                ) : (
-                  selectedDayEvents.map((e, idx) => (
-                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                      <span className={`text-xs font-bold uppercase mb-1 block ${e.type === 'reminder' ? 'text-orange-600' : 'text-rose-600'}`}>
-                        {RECORD_LABELS[e.type] || e.type}
-                      </span>
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{e.value}</p>
-                      {e.note && <p className="text-xs text-gray-500 mt-1">{e.note}</p>}
-                    </div>
-                  ))
-                )
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-6">Нажмите на день в календаре</p>
-              )}
-            </div>
-
-            {selectedDate && (
-              <button 
-                onClick={() => onAddClick(selectedDate)}
-                className="w-full mt-4 bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/20"
-              >
-                + Добавить на этот день
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 export default function Home() {
@@ -213,14 +46,11 @@ export default function Home() {
   const [showCalendarModal, setShowCalendarModal] = useState(false)
   
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(todayLocal())
-
-  // Состояние для списка тех, с кем поделились
   const [petShares, setPetShares] = useState<any[]>([])
   const [shareEmail, setShareEmail] = useState('')
   const [sharingPetId, setSharingPetId] = useState<string | null>(null)
   
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
-  
   const [isPremium, setIsPremium] = useState(false)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
@@ -348,7 +178,6 @@ export default function Home() {
     }
   }, [selectedPetId, fetchRecords, fetchDocuments])
 
-  // Загрузка списка тех, с кем поделились
   async function fetchPetShares(petId: string) {
     const { data } = await supabase.from('pet_shares').select('*').eq('pet_id', petId)
     setPetShares(data || [])
@@ -369,8 +198,8 @@ export default function Home() {
     if (error) toast.error(error.message, { id: toastId })
     else {
       toast.success('Доступ предоставлен!', { id: toastId })
-      setShareEmail('') // Очищаем поле ввода, чтобы можно было добавить еще
-      fetchPetShares(sharingPetId) // Обновляем список
+      setShareEmail('')
+      fetchPetShares(sharingPetId)
     }
   }
 
@@ -442,7 +271,7 @@ export default function Home() {
     const fileName = `${Math.random()}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
     if (uploadError) throw uploadError
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName)
+    const { data } = await supabase.storage.from('avatars').getPublicUrl(fileName)
     return data.publicUrl
   }
 
@@ -490,7 +319,7 @@ export default function Home() {
   async function savePet(e: React.FormEvent) {
     e.preventDefault()
     if (!petName.trim()) return toast.error('Введите имя питомца')
-    if (!hasPremiumAccess && !editingPetId && ownedPetsCount >= 1) {
+    if (!hasPremiumAccess && !editingPetId && ownedPetsCount >= 2) {
       setShowPremiumModal(true)
       return
     }
@@ -535,7 +364,7 @@ export default function Home() {
     else if (selectedPet.species === 'Кошка') templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
     else return toast.error('Шаблоны доступны только для собак и кошек')
 
-    if (!hasPremiumAccess && records.length + templates.length > 10) {
+    if (!hasPremiumAccess && records.length + templates.length > 30) {
       setShowPremiumModal(true)
       return
     }
@@ -590,7 +419,7 @@ export default function Home() {
     if ((recordType === 'weight' || recordType === 'expense') && !/^\d+(\.\d+)?$/.test(trimmed)) {
       return toast.error('Введите число, например 5.2 или 1500')
     }
-    if (!hasPremiumAccess && !editingRecordId && records.length >= 10) {
+    if (!hasPremiumAccess && !editingRecordId && records.length >= 30) {
       setShowPremiumModal(true)
       return
     }
@@ -638,89 +467,9 @@ export default function Home() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 dark:bg-gray-900">Загрузка...</div>
 
-  // ==================== ЛЕНДИНГ ====================
   if (!session) {
-    return (
-      <div className="min-h-screen flex flex-col lg:flex-row bg-[#FFF9F5] transition-colors duration-200">
-        
-        <div className="flex-1 relative flex flex-col justify-center px-8 py-16 md:px-16 lg:px-24 bg-gradient-to-br from-yellow-100 via-orange-200 to-rose-200 text-gray-900 overflow-hidden min-h-[50vh] lg:min-h-screen">
-          
-          <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-            <div className="absolute -top-20 -left-20 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl opacity-60"></div>
-            <div className="absolute bottom-10 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-overlay filter blur-3xl opacity-40"></div>
-          </div>
-
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 bg-white shadow-sm border border-orange-200 px-4 py-2 rounded-full text-sm font-semibold mb-8 text-orange-600">
-              <span className="flex h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
-              Создано с заботой о питомцах
-            </div>
-
-            <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight text-gray-900">
-              Забота, которая <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-rose-500">дарит спокойствие</span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-gray-800 mb-10 max-w-lg leading-relaxed font-medium">
-              PawLog — ваш личный помощник. Следите за весом, прививками и визитами к врачу. Скачивайте красивые PDF-отчеты в один клик. Ни одна важная дата не будет забыта.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
-                <div className="bg-orange-100 p-2 rounded-xl text-2xl">📅</div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Календарь</h3>
-                  <p className="text-sm text-gray-600">Все события по дням</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
-                <div className="bg-orange-100 p-2 rounded-xl text-2xl">📄</div>
-                <div>
-                  <h3 className="font-bold text-gray-800">PDF-отчеты</h3>
-                  <p className="text-sm text-gray-600">Для ветеринара</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
-                <div className="bg-orange-100 p-2 rounded-xl text-2xl">📸</div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Документы</h3>
-                  <p className="text-sm text-gray-600">Анализы и справки</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
-                <div className="bg-orange-100 p-2 rounded-xl text-2xl">🔔</div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Напоминания</h3>
-                  <p className="text-sm text-gray-600">Прививки и таблетки</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white relative">
-          <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl shadow-orange-200/50 w-full max-w-md border border-orange-100 relative z-10">
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h2 className="text-3xl font-extrabold text-gray-900">Добро пожаловать</h2>
-                <p className="text-gray-500 mt-2 text-sm">Войдите, чтобы продолжить заботу о любимце.</p>
-              </div>
-            </div>
-            
-            <AuthForm />
-            
-            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center gap-2">
-              <div className="flex gap-4">
-                <button onClick={() => toast.success('Здесь будет Политика конфиденциальности')} className="text-xs text-gray-400 hover:text-orange-500 transition">Политика конфиденциальности</button>
-                <button onClick={() => toast.success('Здесь будет Оферта')} className="text-xs text-gray-400 hover:text-orange-500 transition">Оферта</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <LandingPage isDark={isDark} toggleTheme={toggleTheme} />
   }
-  // ==============================================================
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
@@ -728,10 +477,8 @@ export default function Home() {
       <div className="flex-1">
         {showCalendarModal && (
           <CalendarModal 
-            records={records}
-            selectedDate={calendarSelectedDate}
-            onDayClick={setCalendarSelectedDate}
-            onAddClick={handleAddFromCalendar}
+            records={records} selectedDate={calendarSelectedDate}
+            onDayClick={setCalendarSelectedDate} onAddClick={handleAddFromCalendar}
             onClose={() => setShowCalendarModal(false)}
           />
         )}
@@ -743,116 +490,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* МОДАЛКА ПОДЕЛИТЬСЯ (ОБНОВЛЕНА) */}
-        {showShareModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 border border-gray-100 dark:border-gray-700 relative">
-              <button onClick={() => setShowShareModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
-              
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Поделиться доступом</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Члены семьи смогут видеть и редактировать дневник этого питомца.</p>
-              
-              {/* Список тех, у кого уже есть доступ */}
-              <div className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Уже имеют доступ:</h3>
-                {petShares.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic">Пока никого нет</p>
-                ) : (
-                  <ul className="space-y-2 max-h-[20vh] overflow-y-auto pr-1">
-                    {petShares.map(share => (
-                      <li key={share.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate pr-2">{share.shared_with_email}</span>
-                        <button 
-                          onClick={() => removeShare(share.id)} 
-                          className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 transition"
-                        >
-                          Отозвать
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Форма добавления */}
-              <form onSubmit={handleShare} className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase">Добавить нового члена семьи:</h3>
-                <input 
-                  type="email" 
-                  placeholder="Email (например, husband@mail.ru)" 
-                  value={shareEmail} 
-                  onChange={e => setShareEmail(e.target.value)} 
-                  className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" 
-                  required 
-                />
-                <button type="submit" className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">
-                  Пригласить
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showSettingsModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative p-6 md:p-8">
-              <button onClick={() => setShowSettingsModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Настройки профиля</h2>
-              <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ваш Email:</p>
-                <p className="font-medium text-gray-800 dark:text-gray-100">{session.user.email}</p>
-              </div>
-              <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-100 dark:border-rose-800">
-                <p className="text-sm text-rose-800 dark:text-rose-300 font-medium mb-1">Ваш тариф:</p>
-                <p className="text-lg font-bold text-rose-900 dark:text-rose-200">{isPremium ? 'Premium (Навсегда)' : (trialDaysLeft && trialDaysLeft > 0 ? `Пробный период (${trialDaysLeft} дн.)` : 'Бесплатный')}</p>
-              </div>
-              <form onSubmit={updatePassword} className="space-y-4">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Сменить пароль</p>
-                <input type="password" placeholder="Новый пароль (мин. 6 символов)" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" required minLength={6} />
-                <button type="submit" disabled={updatingPassword} className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition disabled:opacity-60">{updatingPassword ? 'Сохранение...' : 'Обновить пароль'}</button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showPremiumModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
-              <button onClick={() => setShowPremiumModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
-              <div className="bg-gradient-to-r from-rose-500 to-orange-400 p-8 text-center text-white">
-                <h2 className="text-3xl font-extrabold mb-2">PawLog Premium</h2>
-                <p className="text-rose-100">Снимите все ограничения</p>
-              </div>
-              <div className="p-6 md:p-8">
-                <ul className="space-y-3 mb-6 text-sm text-gray-700 dark:text-gray-300">
-                  <li className="flex items-center gap-3">✨ <b>Безлимитные питомцы</b> (вместо 1)</li>
-                  <li className="flex items-center gap-3">✨ <b>Безлимитные записи</b> (вместо 10)</li>
-                  <li className="flex items-center gap-3">✨ Автоматические графики прививок</li>
-                  <li className="flex items-center gap-3">✨ Приоритетная поддержка</li>
-                </ul>
-                {trialDaysLeft === null && (
-                  <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-center">
-                    <p className="text-sm text-green-800 dark:text-green-300 font-medium mb-3">Не уверены? Попробуйте все функции бесплатно!</p>
-                    <button onClick={startFreeTrial} className="w-full bg-green-600 text-white py-2.5 rounded-lg font-bold hover:bg-green-700 transition shadow-md shadow-green-500/30">Попробовать 7 дней бесплатно</button>
-                  </div>
-                )}
-                <div className="relative flex py-2 items-center mb-4">
-                  <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
-                  <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">Или оформите подписку</span>
-                  <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
-                </div>
-                <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-6">
-                  <button onClick={() => setBillingPeriod('monthly')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${billingPeriod === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}>Помесячно</button>
-                  <button onClick={() => setBillingPeriod('annual')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition flex items-center justify-center gap-1 ${billingPeriod === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}>На год <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded">-33%</span></button>
-                </div>
-                <div className="text-center mb-6">
-                  {billingPeriod === 'monthly' ? (<><span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span><span className="text-gray-500 dark:text-gray-400"> / мес</span></>) : (<><span className="text-4xl font-bold text-gray-900 dark:text-white">1190 ₽</span><span className="text-gray-500 dark:text-gray-400"> / год</span><p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год</p></>)}
-                </div>
-                <button onClick={() => { toast.success('Здесь будет оплата ЮKassa!'); setShowPremiumModal(false); }} className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Оплатить</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
+        <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} />
+        <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
 
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
           <h1 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">🐾 PawLog</h1>
@@ -871,14 +511,14 @@ export default function Home() {
           <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-semibold text-gray-700 dark:text-gray-200">Мои питомцы</h2>
-              {!hasPremiumAccess && <span className="text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-2 py-1 rounded-full font-medium">Лимит: {ownedPetsCount}/1</span>}
+              {!hasPremiumAccess && <span className="text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-2 py-1 rounded-full font-medium">Лимит: {ownedPetsCount}/2</span>}
             </div>
             <div className="space-y-2 mb-4">
               {pets.length === 0 ? (
                 <div className="text-center p-6 bg-rose-50/50 dark:bg-rose-900/20 rounded-xl border border-dashed border-rose-200 dark:border-rose-800 mb-2">
                   <span className="text-4xl mb-2 block">{SPECIES_ICONS[petSpecies] || '🐾'}</span>
                   <p className="text-sm font-medium text-rose-800 dark:text-rose-300 mb-1">Шаг 1. Добавьте питомца</p>
-                  <p className="text-xs text-rose-600 dark:text-rose-400 mb-2">Заполните форму ниже, чтобы начать вести дневник.</p>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 mb-2">Заполните форму ниже.</p>
                   <div className="text-2xl animate-bounce mt-2">↓</div>
                 </div>
               ) : (
@@ -952,7 +592,7 @@ export default function Home() {
               <form onSubmit={saveRecord} className="space-y-3">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Для: <span className="font-medium text-gray-700 dark:text-gray-200">{selectedPet.name}</span></p>
-                  {!hasPremiumAccess && <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/10</span>}
+                  {!hasPremiumAccess && <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">Лимит: {records.length}/30</span>}
                 </div>
                 {(selectedPet.species === 'Собака' || selectedPet.species === 'Кошка') && !editingRecordId && (
                   <button type="button" onClick={addVaccineTemplates} className="w-full bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-xs py-2 rounded-lg border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition flex items-center justify-center gap-1 font-medium">🪄 Добавить график прививок</button>
@@ -1069,7 +709,7 @@ export default function Home() {
                       <div className="text-center p-6 bg-rose-50/50 dark:bg-rose-900/20 rounded-xl border border-dashed border-rose-200 dark:border-rose-800 mt-6">
                         <span className="text-4xl mb-2 block">📝</span>
                         <p className="text-sm font-medium text-rose-800 dark:text-rose-300 mb-1">Шаг 2. Добавьте запись</p>
-                        <p className="text-xs text-rose-600 dark:text-rose-400">Заполните форму слева, чтобы добавить первый вес или прививку.</p>
+                        <p className="text-xs text-rose-600 dark:text-rose-400">Заполните форму слева.</p>
                         <div className="text-2xl animate-bounce mt-2">←</div>
                       </div>
                     ) : (
@@ -1135,7 +775,6 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Подвал (Footer) */}
       <footer className="mt-auto py-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 print:hidden">
         <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-2">
           <div className="flex gap-6">
