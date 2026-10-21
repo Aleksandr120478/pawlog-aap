@@ -617,85 +617,82 @@ export default function Home() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 dark:bg-gray-900">Загрузка...</div>
 
-  // ==================== СПОКОЙНЫЙ ЛЕНДИНГ ====================
+  // ==================== ДОФАМИНОВЫЙ ЛЕНДИНГ (Warm Dopamine) ====================
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col lg:flex-row bg-[#FFF9F5] dark:bg-gray-900 transition-colors duration-200">
+      <div className="min-h-screen flex flex-col lg:flex-row bg-[#FFF9F5] transition-colors duration-200">
         
         {/* Левая часть - продающая и с фотографией */}
-        <div className="flex-1 relative flex flex-col justify-center px-8 py-16 md:px-16 lg:px-24 bg-[#FFF9F5] dark:bg-gray-900 text-gray-800 dark:text-white overflow-hidden min-h-[50vh] lg:min-h-screen border-r border-rose-100 dark:border-gray-800">
+        <div className="flex-1 relative flex flex-col justify-center px-8 py-16 md:px-16 lg:px-24 bg-gradient-to-br from-yellow-100 via-orange-200 to-rose-200 text-gray-900 overflow-hidden min-h-[50vh] lg:min-h-screen">
           
           {/* Декоративные элементы */}
           <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-            <div className="absolute -top-20 -left-20 w-96 h-96 bg-rose-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50"></div>
-            <div className="absolute bottom-10 right-10 w-72 h-72 bg-orange-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50"></div>
+            <div className="absolute -top-20 -left-20 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl opacity-60"></div>
+            <div className="absolute bottom-10 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-overlay filter blur-3xl opacity-40"></div>
           </div>
 
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 bg-white shadow-sm border border-rose-100 px-4 py-2 rounded-full text-sm font-medium mb-8 text-rose-600">
-              <span className="flex h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
+            <div className="inline-flex items-center gap-2 bg-white shadow-sm border border-orange-200 px-4 py-2 rounded-full text-sm font-semibold mb-8 text-orange-600">
+              <span className="flex h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
               Создано с заботой о питомцах
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight text-gray-900 dark:text-white">
+            <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight text-gray-900">
               Забота, которую <br/>
-              <span className="text-rose-500">чувствует питомец</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-rose-500">чувствует питомец</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-lg leading-relaxed">
+            <p className="text-lg md:text-xl text-gray-800 mb-10 max-w-lg leading-relaxed font-medium">
               PawLog — ваш личный помощник. Следите за весом, прививками и визитами к врачу. Скачивайте красивые PDF-отчеты в один клик. Ни одна важная дата не будет забыта.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-              <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="bg-rose-50 p-2 rounded-xl text-2xl">📅</div>
+              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
+                <div className="bg-orange-100 p-2 rounded-xl text-2xl">📅</div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">Календарь</h3>
-                  <p className="text-sm text-gray-500">Все события по дням</p>
+                  <h3 className="font-bold text-gray-800">Календарь</h3>
+                  <p className="text-sm text-gray-600">Все события по дням</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="bg-rose-50 p-2 rounded-xl text-2xl">📄</div>
+              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
+                <div className="bg-orange-100 p-2 rounded-xl text-2xl">📄</div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">PDF-отчеты</h3>
-                  <p className="text-sm text-gray-500">Для ветеринара</p>
+                  <h3 className="font-bold text-gray-800">PDF-отчеты</h3>
+                  <p className="text-sm text-gray-600">Для ветеринара</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="bg-rose-50 p-2 rounded-xl text-2xl">📸</div>
+              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
+                <div className="bg-orange-100 p-2 rounded-xl text-2xl">📸</div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">Документы</h3>
-                  <p className="text-sm text-gray-500">Анализы и справки</p>
+                  <h3 className="font-bold text-gray-800">Документы</h3>
+                  <p className="text-sm text-gray-600">Анализы и справки</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="bg-rose-50 p-2 rounded-xl text-2xl">🔔</div>
+              <div className="flex items-center gap-3 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white shadow-sm">
+                <div className="bg-orange-100 p-2 rounded-xl text-2xl">🔔</div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">Напоминания</h3>
-                  <p className="text-sm text-gray-500">Прививки и таблетки</p>
+                  <h3 className="font-bold text-gray-800">Напоминания</h3>
+                  <p className="text-sm text-gray-600">Прививки и таблетки</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Правая часть - форма входа */}
-        <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-gray-900 relative">
-          <div className="bg-white dark:bg-gray-800 p-8 md:p-12 rounded-[2.5rem] shadow-xl shadow-gray-200/50 dark:shadow-none w-full max-w-md border border-gray-100 dark:border-gray-700 relative z-10">
+        {/* Правая часть - форма входа (ВСЕГДА СВЕТЛАЯ) */}
+        <div className="flex-1 flex items-center justify-center p-8 bg-white relative">
+          <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl shadow-orange-200/50 w-full max-w-md border border-orange-100 relative z-10">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h2 className="text-3xl font-extrabold text-gray-800 dark:text-white">Добро пожаловать</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Войдите, чтобы продолжить заботу о любимце.</p>
+                <h2 className="text-3xl font-extrabold text-gray-900">Добро пожаловать</h2>
+                <p className="text-gray-500 mt-2 text-sm">Войдите, чтобы продолжить заботу о любимце.</p>
               </div>
-              <button onClick={toggleTheme} className="text-2xl p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full hover:scale-110 transition-transform">
-                {isDark ? '☀️' : '🌙'}
-              </button>
             </div>
             
             <AuthForm />
             
             <div className="mt-8 text-center">
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-400">
                 Нажимая «Войти», вы соглашаетесь с условиями использования.
               </p>
             </div>
