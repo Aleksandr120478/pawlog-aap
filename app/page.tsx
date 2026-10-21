@@ -49,7 +49,6 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-// Полноэкранный календарь
 function CalendarModal({ 
   records, 
   selectedDate, 
@@ -104,19 +103,19 @@ function CalendarModal({
       <div 
         key={day} 
         onClick={() => onDayClick(dateString)}
-        className={`min-h-[120px] p-2 border rounded-xl flex flex-col cursor-pointer transition-all duration-200 hover:border-blue-500 hover:shadow-md overflow-hidden ${
+        className={`min-h-[120px] p-2 border rounded-xl flex flex-col cursor-pointer transition-all duration-200 hover:border-rose-400 hover:shadow-md overflow-hidden ${
           isSelected 
-            ? 'border-blue-500 ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30' 
+            ? 'border-rose-500 ring-2 ring-rose-500 bg-rose-50 dark:bg-rose-900/30' 
             : isToday 
-              ? 'border-blue-400 bg-blue-50/30 dark:bg-blue-900/10' 
+              ? 'border-rose-400 bg-rose-50/30 dark:bg-rose-900/10' 
               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
         }`}
       >
-        <span className={`text-sm font-bold shrink-0 ${isSelected || isToday ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}`}>{day}</span>
+        <span className={`text-sm font-bold shrink-0 ${isSelected || isToday ? 'text-rose-700 dark:text-rose-300' : 'text-gray-600 dark:text-gray-400'}`}>{day}</span>
         
         <div className="flex-1 mt-2 overflow-y-auto w-full flex flex-col gap-1 pointer-events-none custom-scrollbar">
           {dayEvents.map((e, idx) => (
-            <div key={idx} title={e.value} className={`text-[10px] leading-tight truncate w-full px-1.5 py-1 rounded-md ${e.type === 'reminder' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'}`}>
+            <div key={idx} title={e.value} className={`text-[10px] leading-tight truncate w-full px-1.5 py-1 rounded-md ${e.type === 'reminder' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'}`}>
               {e.value}
             </div>
           ))}
@@ -167,7 +166,7 @@ function CalendarModal({
                 ) : (
                   selectedDayEvents.map((e, idx) => (
                     <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                      <span className={`text-xs font-bold uppercase mb-1 block ${e.type === 'reminder' ? 'text-orange-600' : 'text-blue-600'}`}>
+                      <span className={`text-xs font-bold uppercase mb-1 block ${e.type === 'reminder' ? 'text-orange-600' : 'text-rose-600'}`}>
                         {RECORD_LABELS[e.type] || e.type}
                       </span>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{e.value}</p>
@@ -183,7 +182,7 @@ function CalendarModal({
             {selectedDate && (
               <button 
                 onClick={() => onAddClick(selectedDate)}
-                className="w-full mt-4 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-500/20"
+                className="w-full mt-4 bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/20"
               >
                 + Добавить на этот день
               </button>
@@ -435,7 +434,7 @@ export default function Home() {
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
       if (uploadError) throw uploadError
-      const { data } = supabase.storage.from('documents').getPublicUrl(fileName)
+      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
       const { error: dbError } = await supabase.from('pet_documents').insert({ pet_id: selectedPetId, name: file.name, url: data.publicUrl })
       if (dbError) throw dbError
       toast.success('Документ загружен!', { id: toastId })
@@ -618,32 +617,97 @@ export default function Home() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 dark:bg-gray-900">Загрузка...</div>
 
+  // ==================== ЛЕНДИНГ ====================
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col md:flex-row bg-white dark:bg-gray-900 transition-colors duration-200">
-        <div className="flex-1 flex flex-col justify-center px-8 py-16 md:px-20 lg:px-32 bg-blue-600 dark:bg-blue-950 text-white">
-          <h1 className="text-5xl font-extrabold mb-6 flex items-center gap-4">🐾 PawLog</h1>
-          <p className="text-xl md:text-2xl mb-8 text-blue-100">Умный дневник здоровья вашего питомца. Следите за весом, прививками и лекарствами. Скачивайте красивые PDF-отчеты для ветеринара.</p>
-          <ul className="space-y-4 text-lg text-blue-50 mb-12">
-            <li className="flex items-center gap-3">✅ Учет веса, прививок и расходов</li>
-            <li className="flex items-center gap-3">✅ Медицинская карта и документы</li>
-            <li className="flex items-center gap-3">✅ Email-напоминания о процедурах</li>
-            <li className="flex items-center gap-3">✅ Печать медицинской карты в один клик</li>
-          </ul>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
-          <div className="bg-white dark:bg-gray-800 p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-700">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Вход в систему</h2>
-              <button onClick={toggleTheme} className="text-2xl p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:scale-110 transition">{isDark ? '☀️' : '🌙'}</button>
+      <div className="min-h-screen flex flex-col lg:flex-row bg-[#FFF9F5] dark:bg-gray-900 transition-colors duration-200">
+        
+        <div className="flex-1 relative flex flex-col justify-center px-8 py-16 md:px-16 lg:px-24 bg-gradient-to-br from-rose-400 via-pink-500 to-orange-400 text-white overflow-hidden min-h-[50vh] lg:min-h-screen">
+          
+          <div className="absolute inset-0">
+            <img 
+              src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=1000&q=80" 
+              alt="Женщина с котом" 
+              className="w-full h-full object-cover opacity-30 mix-blend-overlay"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-rose-600/80 to-transparent"></div>
+          </div>
+
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium mb-8 border border-white/30">
+              <span className="flex h-2 w-2 rounded-full bg-green-300 animate-pulse"></span>
+              Создано с любовью к питомцам
             </div>
-            <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">Создайте аккаунт за 10 секунд, чтобы начать вести дневник.</p>
+
+            <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight drop-shadow-md">
+              Забота, которую <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 to-white">чувствует питомец</span>
+            </h1>
+            
+            <p className="text-lg md:text-xl text-rose-50 mb-10 max-w-lg leading-relaxed">
+              PawLog — ваш личный помощник. Следите за весом, прививками и визитами к врачу. Скачивайте красивые PDF-отчеты в один клик. Ни одна важная дата не будет забыта.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+              <div className="flex items-center gap-3 bg-white/20 p-4 rounded-2xl border border-white/20 backdrop-blur-sm shadow-sm">
+                <div className="bg-white/30 p-2 rounded-xl text-2xl">📅</div>
+                <div>
+                  <h3 className="font-semibold text-white">Календарь</h3>
+                  <p className="text-sm text-rose-100">Все события по дням</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-white/20 p-4 rounded-2xl border border-white/20 backdrop-blur-sm shadow-sm">
+                <div className="bg-white/30 p-2 rounded-xl text-2xl">📄</div>
+                <div>
+                  <h3 className="font-semibold text-white">PDF-отчеты</h3>
+                  <p className="text-sm text-rose-100">Для ветеринара</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-white/20 p-4 rounded-2xl border border-white/20 backdrop-blur-sm shadow-sm">
+                <div className="bg-white/30 p-2 rounded-xl text-2xl">📸</div>
+                <div>
+                  <h3 className="font-semibold text-white">Документы</h3>
+                  <p className="text-sm text-rose-100">Анализы и справки</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-white/20 p-4 rounded-2xl border border-white/20 backdrop-blur-sm shadow-sm">
+                <div className="bg-white/30 p-2 rounded-xl text-2xl">🔔</div>
+                <div>
+                  <h3 className="font-semibold text-white">Напоминания</h3>
+                  <p className="text-sm text-rose-100">Прививки и таблетки</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-8 bg-[#FFF9F5] dark:bg-gray-900 relative">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
+          
+          <div className="bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl p-8 md:p-12 rounded-[2.5rem] shadow-2xl shadow-rose-200/50 dark:shadow-none w-full max-w-md border border-white dark:border-gray-700 relative z-10">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-3xl font-extrabold text-gray-800 dark:text-white">Добро пожаловать</h2>
+                <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Войдите, чтобы продолжить заботу о любимце.</p>
+              </div>
+              <button onClick={toggleTheme} className="text-2xl p-3 bg-rose-50 dark:bg-gray-700 text-rose-500 dark:text-gray-300 rounded-full hover:scale-110 transition-transform">
+                {isDark ? '☀️' : '🌙'}
+              </button>
+            </div>
+            
             <AuthForm />
+            
+            <div className="mt-8 text-center">
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Нажимая «Войти», вы соглашаетесь с условиями использования.
+              </p>
+            </div>
           </div>
         </div>
       </div>
     )
   }
+  // ==============================================================
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
@@ -672,8 +736,8 @@ export default function Home() {
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Поделиться доступом</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Введите email члена семьи, чтобы он мог видеть и редактировать дневник этого питомца.</p>
             <form onSubmit={(e) => { e.preventDefault(); handleShare(); }} className="space-y-4">
-              <input type="email" placeholder="Email (например, wife@mail.ru)" value={shareEmail} onChange={e => setShareEmail(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" required />
-              <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition">Пригласить</button>
+              <input type="email" placeholder="Email (например, wife@mail.ru)" value={shareEmail} onChange={e => setShareEmail(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" required />
+              <button type="submit" className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Пригласить</button>
             </form>
           </div>
         </div>
@@ -688,14 +752,14 @@ export default function Home() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ваш Email:</p>
               <p className="font-medium text-gray-800 dark:text-gray-100">{session.user.email}</p>
             </div>
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-1">Ваш тариф:</p>
-              <p className="text-lg font-bold text-blue-900 dark:text-blue-200">{isPremium ? 'Premium (Навсегда)' : (trialDaysLeft && trialDaysLeft > 0 ? `Пробный период (${trialDaysLeft} дн.)` : 'Бесплатный')}</p>
+            <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-100 dark:border-rose-800">
+              <p className="text-sm text-rose-800 dark:text-rose-300 font-medium mb-1">Ваш тариф:</p>
+              <p className="text-lg font-bold text-rose-900 dark:text-rose-200">{isPremium ? 'Premium (Навсегда)' : (trialDaysLeft && trialDaysLeft > 0 ? `Пробный период (${trialDaysLeft} дн.)` : 'Бесплатный')}</p>
             </div>
             <form onSubmit={updatePassword} className="space-y-4">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Сменить пароль</p>
-              <input type="password" placeholder="Новый пароль (мин. 6 символов)" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" required minLength={6} />
-              <button type="submit" disabled={updatingPassword} className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition disabled:opacity-60">{updatingPassword ? 'Сохранение...' : 'Обновить пароль'}</button>
+              <input type="password" placeholder="Новый пароль (мин. 6 символов)" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" required minLength={6} />
+              <button type="submit" disabled={updatingPassword} className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition disabled:opacity-60">{updatingPassword ? 'Сохранение...' : 'Обновить пароль'}</button>
             </form>
           </div>
         </div>
@@ -705,9 +769,9 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative">
             <button onClick={() => setShowPremiumModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center text-white">
+            <div className="bg-gradient-to-r from-rose-500 to-orange-400 p-8 text-center text-white">
               <h2 className="text-3xl font-extrabold mb-2">PawLog Premium</h2>
-              <p className="text-blue-100">Снимите все ограничения</p>
+              <p className="text-rose-100">Снимите все ограничения</p>
             </div>
             <div className="p-6 md:p-8">
               <ul className="space-y-3 mb-6 text-sm text-gray-700 dark:text-gray-300">
@@ -734,7 +798,7 @@ export default function Home() {
               <div className="text-center mb-6">
                 {billingPeriod === 'monthly' ? (<><span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span><span className="text-gray-500 dark:text-gray-400"> / мес</span></>) : (<><span className="text-4xl font-bold text-gray-900 dark:text-white">1190 ₽</span><span className="text-gray-500 dark:text-gray-400"> / год</span><p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год</p></>)}
               </div>
-              <button onClick={() => { toast.success('Здесь будет оплата ЮKassa!'); setShowPremiumModal(false); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">Оплатить</button>
+              <button onClick={() => { toast.success('Здесь будет оплата ЮKassa!'); setShowPremiumModal(false); }} className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Оплатить</button>
             </div>
           </div>
         </div>
@@ -744,10 +808,10 @@ export default function Home() {
         <h1 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">🐾 PawLog</h1>
         <div className="flex items-center gap-4">
           {!hasPremiumAccess && (
-            <button onClick={() => setShowPremiumModal(true)} className="hidden sm:block text-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-full font-medium hover:opacity-90 transition">Получить Premium</button>
+            <button onClick={() => setShowPremiumModal(true)} className="hidden sm:block text-xs bg-gradient-to-r from-rose-500 to-orange-400 text-white px-3 py-1.5 rounded-full font-medium hover:opacity-90 transition shadow-sm">Получить Premium</button>
           )}
           <button onClick={toggleTheme} className="text-xl p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:scale-110 transition" title="Сменить тему">{isDark ? '☀️' : '🌙'}</button>
-          <span onClick={() => setShowSettingsModal(true)} className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline cursor-pointer hover:text-blue-500 transition underline decoration-dashed underline-offset-4" title="Настройки профиля">{session.user.email}</span>
+          <span onClick={() => setShowSettingsModal(true)} className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline cursor-pointer hover:text-rose-500 transition underline decoration-dashed underline-offset-4" title="Настройки профиля">{session.user.email}</span>
           <button onClick={handleLogout} className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition">Выйти</button>
         </div>
       </header>
@@ -757,21 +821,21 @@ export default function Home() {
         <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700 dark:text-gray-200">Мои питомцы</h2>
-            {!hasPremiumAccess && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-full font-medium">Лимит: {ownedPetsCount}/1</span>}
+            {!hasPremiumAccess && <span className="text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-2 py-1 rounded-full font-medium">Лимит: {ownedPetsCount}/1</span>}
           </div>
           <div className="space-y-2 mb-4">
             {pets.length === 0 ? (
-              <div className="text-center p-6 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-dashed border-blue-200 dark:border-blue-800 mb-2">
+              <div className="text-center p-6 bg-rose-50/50 dark:bg-rose-900/20 rounded-xl border border-dashed border-rose-200 dark:border-rose-800 mb-2">
                 <span className="text-4xl mb-2 block">{SPECIES_ICONS[petSpecies] || '🐾'}</span>
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Шаг 1. Добавьте питомца</p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Заполните форму ниже, чтобы начать вести дневник.</p>
+                <p className="text-sm font-medium text-rose-800 dark:text-rose-300 mb-1">Шаг 1. Добавьте питомца</p>
+                <p className="text-xs text-rose-600 dark:text-rose-400 mb-2">Заполните форму ниже, чтобы начать вести дневник.</p>
                 <div className="text-2xl animate-bounce mt-2">↓</div>
               </div>
             ) : (
               pets.map(pet => {
                 const isOwner = pet.user_id === session.user.id;
                 return (
-                  <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
+                  <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden ml-3 shrink-0">
                       {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" /> : <span className="text-lg">🐾</span>}
                     </div>
@@ -786,7 +850,7 @@ export default function Home() {
                       {isOwner && (
                         <>
                           <button onClick={(e) => { e.stopPropagation(); openShareModal(pet.id); }} className="p-1 text-gray-300 hover:text-purple-500 transition" title="Поделиться">🔗</button>
-                          <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-blue-500 transition" title="Редактировать">✏️</button>
+                          <button onClick={(e) => { e.stopPropagation(); startEditingPet(pet); }} className="p-1 text-gray-300 hover:text-rose-500 transition" title="Редактировать">✏️</button>
                           <button onClick={(e) => { e.stopPropagation(); deletePet(pet.id); }} className="p-1 text-gray-300 hover:text-red-500 transition" title="Удалить">×</button>
                         </>
                       )}
@@ -798,7 +862,7 @@ export default function Home() {
           </div>
           <form onSubmit={savePet} className="space-y-2 border-t border-gray-100 dark:border-gray-700 pt-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">{editingPetId ? 'Редактировать профиль' : 'Добавить питомца'}</p>
-            <input type="text" placeholder="Имя питомца" value={petName} onChange={e => setPetName(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
+            <input type="text" placeholder="Имя питомца" value={petName} onChange={e => setPetName(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-200 outline-none" />
             <div className="flex gap-2">
               <select value={petSpecies} onChange={e => setPetSpecies(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 <optgroup label="Популярные"><option>Собака</option><option>Кошка</option></optgroup>
@@ -807,7 +871,7 @@ export default function Home() {
                 <optgroup label="Экзотика"><option>Хорёк</option><option>Черепаха</option><option>Ящерица</option><option>Змея</option><option>Ёжик</option></optgroup>
                 <optgroup label="Другое"><option>Рыбка</option><option>Другое</option></optgroup>
               </select>
-              <input type="text" placeholder="Порода" value={petBreed} onChange={e => setPetBreed(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-200 outline-none" />
+              <input type="text" placeholder="Порода" value={petBreed} onChange={e => setPetBreed(e.target.value)} className="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-200 outline-none" />
             </div>
             <input type="date" value={petBirthDate} onChange={e => setPetBirthDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300" />
             <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700 space-y-2 mt-2">
@@ -819,10 +883,10 @@ export default function Home() {
             </div>
             <div className="text-sm pt-2">
               <label className="block text-gray-500 dark:text-gray-400 mb-1 text-xs">{editingPetId ? 'Новое фото' : 'Фото питомца'}</label>
-              <input type="file" accept="image/*" onChange={e => setPetFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-gray-600 file:text-blue-700 dark:file:text-white hover:file:bg-blue-100" />
+              <input type="file" accept="image/*" onChange={e => setPetFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-rose-50 dark:file:bg-gray-600 file:text-rose-700 dark:file:text-white hover:file:bg-rose-100" />
             </div>
             <div className="flex gap-2 mt-2">
-              <button type="submit" disabled={savingPet} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${editingPetId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+              <button type="submit" disabled={savingPet} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${editingPetId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-rose-500 hover:bg-rose-600'}`}>
                 {savingPet ? 'Сохранение...' : editingPetId ? 'Обновить' : `${SPECIES_ICONS[petSpecies] || '🐾'} Добавить`}
               </button>
               {editingPetId && <button type="button" onClick={resetPetForm} className="px-4 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-sm font-medium hover:bg-gray-300">Отмена</button>}
@@ -877,13 +941,13 @@ export default function Home() {
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-semibold text-gray-700 dark:text-gray-200">{selectedPet ? selectedPet.name : 'Лента'}</h2>
               <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 print:hidden">
-                <button onClick={() => setDashboardTab('list')} className={`px-2 py-1 text-xs rounded-md transition ${dashboardTab === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📋 Список</button>
-                <button onClick={() => setDashboardTab('docs')} className={`px-2 py-1 text-xs rounded-md transition ${dashboardTab === 'docs' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500'}`}>📁 Документы</button>
+                <button onClick={() => setDashboardTab('list')} className={`px-2 py-1 text-xs rounded-md transition ${dashboardTab === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-rose-600 dark:text-rose-400 font-medium' : 'text-gray-500'}`}>📋 Список</button>
+                <button onClick={() => setDashboardTab('docs')} className={`px-2 py-1 text-xs rounded-md transition ${dashboardTab === 'docs' ? 'bg-white dark:bg-gray-600 shadow-sm text-rose-600 dark:text-rose-400 font-medium' : 'text-gray-500'}`}>📁 Документы</button>
               </div>
             </div>
             
             {selectedPet && (
-              <button onClick={() => setShowCalendarModal(true)} className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition flex items-center gap-1 print:hidden">
+              <button onClick={() => setShowCalendarModal(true)} className="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-rose-200 dark:hover:bg-rose-900/50 transition flex items-center gap-1 print:hidden">
                 📅 Открыть календарь
               </button>
             )}
@@ -944,18 +1008,18 @@ export default function Home() {
                             <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} vertical={false} />
                             <XAxis dataKey="date" tick={{fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280'}} tickLine={false} axisLine={false} />
                             <YAxis tick={{fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280'}} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
-                            <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f2937' : '#ffffff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: isDark ? '#f3f4f6' : '#111827' }} itemStyle={{ color: isDark ? '#60a5fa' : '#2563eb', fontWeight: 'bold' }} />
-                            <Line type="monotone" dataKey="weight" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: isDark ? '#1f2937' : '#fff' }} activeDot={{ r: 6 }} />
+                            <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f2937' : '#ffffff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: isDark ? '#f3f4f6' : '#111827' }} itemStyle={{ color: isDark ? '#f43f5e' : '#e11d48', fontWeight: 'bold' }} />
+                            <Line type="monotone" dataKey="weight" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2, stroke: isDark ? '#1f2937' : '#fff' }} activeDot={{ r: 6 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
                   )}
                   {records.length === 0 ? (
-                    <div className="text-center p-6 bg-green-50/50 dark:bg-green-900/20 rounded-xl border border-dashed border-green-200 dark:border-green-800 mt-6">
+                    <div className="text-center p-6 bg-rose-50/50 dark:bg-rose-900/20 rounded-xl border border-dashed border-rose-200 dark:border-rose-800 mt-6">
                       <span className="text-4xl mb-2 block">📝</span>
-                      <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">Шаг 2. Добавьте запись</p>
-                      <p className="text-xs text-green-600 dark:text-green-400">Заполните форму слева, чтобы добавить первый вес или прививку.</p>
+                      <p className="text-sm font-medium text-rose-800 dark:text-rose-300 mb-1">Шаг 2. Добавьте запись</p>
+                      <p className="text-xs text-rose-600 dark:text-rose-400">Заполните форму слева, чтобы добавить первый вес или прививку.</p>
                       <div className="text-2xl animate-bounce mt-2">←</div>
                     </div>
                   ) : (
@@ -963,13 +1027,13 @@ export default function Home() {
                       {records.map(record => {
                         const reminder = getReminderStatus(record.next_date);
                         return (
-                          <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : record.type === 'expense' ? 'border-emerald-400 print:border-gray-400' : 'border-blue-200 dark:border-blue-700 print:border-gray-400'}`}>
+                          <div key={record.id} className={`border-l-4 pl-3 py-1 print:break-inside-avoid ${record.type === 'note' ? 'border-yellow-400 print:border-gray-400' : record.type === 'expense' ? 'border-emerald-400 print:border-gray-400' : 'border-rose-200 dark:border-rose-700 print:border-gray-400'}`}>
                             <div className="flex justify-between items-center">
-                              <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : record.type === 'expense' ? 'text-emerald-600 dark:text-emerald-500' : 'text-blue-500 dark:text-blue-400'}`}>{RECORD_LABELS[record.type] || record.type}</span>
+                              <span className={`text-xs font-medium uppercase print:text-gray-800 ${record.type === 'note' ? 'text-yellow-600 dark:text-yellow-500' : record.type === 'expense' ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-500 dark:text-rose-400'}`}>{RECORD_LABELS[record.type] || record.type}</span>
                               <div className="flex items-center gap-3">
                                 <span className="text-xs text-gray-400 dark:text-gray-500">{record.record_date}</span>
                                 <div className="flex gap-1 print:hidden">
-                                  <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-blue-500 p-1">✏️</button>
+                                  <button onClick={() => startEditingRecord(record)} className="text-gray-300 hover:text-rose-500 p-1">✏️</button>
                                   <button onClick={() => deleteRecord(record.id)} className="text-gray-300 hover:text-red-500 p-1">×</button>
                                 </div>
                               </div>
@@ -1007,7 +1071,7 @@ export default function Home() {
                           </div>
                         </div>
                         <div className="flex gap-2 shrink-0">
-                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 p-1 text-sm font-medium">Открыть</a>
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:text-rose-700 p-1 text-sm font-medium">Открыть</a>
                           <button onClick={() => deleteDocument(doc.id, doc.url)} className="text-red-400 hover:text-red-600 p-1 text-sm">Удалить</button>
                         </div>
                       </div>
