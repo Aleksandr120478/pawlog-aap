@@ -57,7 +57,6 @@ export default function Home() {
 
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
 
-  // 1. Забираем всё про питомцев
   const {
     pets, setPets, selectedPetId, setSelectedPetId, selectedPet, savingPet, ownedPetsCount,
     fetchPets, editingPetId, petName, setPetName, petSpecies, setPetSpecies, petBreed, setPetBreed,
@@ -66,10 +65,10 @@ export default function Home() {
     startEditingPet, resetPetForm, savePet, deletePet
   } = usePets(session, hasPremiumAccess, () => setShowPremiumModal(true))
 
-  // 2. Забираем всё про записи и документы
+  // ДОБАВЛЕНО setEditingRecordId В ДЕСТРУКТУРИЗАЦИЮ
   const {
-    records, documents, savingRecord, editingRecordId, recordType, setRecordType,
-    recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
+    records, documents, savingRecord, editingRecordId, setEditingRecordId, 
+    recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
     deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument,
     totalExpenses, upcomingEvents, weightData
@@ -219,7 +218,7 @@ export default function Home() {
   }
 
   function handleAddFromCalendar(date: string) {
-    setEditingRecordId(null)
+    setEditingRecordId(null) // Теперь эта функция есть!
     setRecordType('weight')
     setRecordValue('')
     setRecordNote('')
