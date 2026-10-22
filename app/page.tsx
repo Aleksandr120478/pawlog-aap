@@ -8,6 +8,10 @@ import CalendarModal from '../components/CalendarModal'
 import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals'
 import { Pet, HealthRecord, PetDocument, RECORD_LABELS, SPECIES_ICONS } from '../components/types'
 
+// НОВЫЕ ИМПОРТЫ (добавлены сюда):
+import Header from '../components/Header'
+import Footer from '../components/Footer'
+
 function todayLocal() {
   const d = new Date()
   const offset = d.getTimezoneOffset()
@@ -251,7 +255,6 @@ export default function Home() {
     link.click();
     document.body.removeChild(link);
     
-    // ДОБАВЛЕНО УВЕДОМЛЕНИЕ:
     toast.success('Файл Excel успешно скачан!');
   }
 
@@ -354,7 +357,6 @@ export default function Home() {
     } else {
       const { data, error } = await supabase.from('pets').insert({ ...petData, user_id: session.user.id }).select().single()
       
-      // ИЗМЕНЕНО ЗДЕСЬ: Ловим ошибку лимита из базы и открываем окно Premium
       if (error) {
         if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
            setShowPremiumModal(true)
@@ -460,7 +462,6 @@ export default function Home() {
     } else {
       const { error } = await supabase.from('health_records').insert({ ...recordData, pet_id: selectedPetId })
       
-      // ИЗМЕНЕНО ЗДЕСЬ: Ловим ошибку лимита из базы и открываем окно Premium
       if (error) {
         if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
            setShowPremiumModal(true)
@@ -536,17 +537,16 @@ export default function Home() {
         
         <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
 
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
-          <h1 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">🐾 PawLog</h1>
-          <div className="flex items-center gap-4">
-            {!hasPremiumAccess && (
-              <button onClick={() => setShowPremiumModal(true)} className="hidden sm:block text-xs bg-gradient-to-r from-rose-500 to-orange-400 text-white px-3 py-1.5 rounded-full font-medium hover:opacity-90 transition shadow-sm">Получить Premium</button>
-            )}
-            <button onClick={toggleTheme} className="text-xl p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:scale-110 transition" title="Сменить тему">{isDark ? '☀️' : '🌙'}</button>
-            <span onClick={() => setShowSettingsModal(true)} className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline cursor-pointer hover:text-rose-500 transition underline decoration-dashed underline-offset-4" title="Настройки профиля">{session.user.email}</span>
-            <button onClick={handleLogout} className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition">Выйти</button>
-          </div>
-        </header>
+        {/* ВМЕСТО СТАРОГО <header> ТЕПЕРЬ СТОИТ НОВЫЙ КОМПОНЕНТ */}
+        <Header 
+          isDark={isDark} 
+          toggleTheme={toggleTheme} 
+          session={session} 
+          hasPremiumAccess={hasPremiumAccess} 
+          onOpenPremium={() => setShowPremiumModal(true)} 
+          onOpenSettings={() => setShowSettingsModal(true)} 
+          onLogout={handleLogout} 
+        />
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
           
@@ -817,15 +817,8 @@ export default function Home() {
         </main>
       </div>
 
-      <footer className="mt-auto py-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 print:hidden">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-2">
-          <div className="flex gap-6">
-            <button onClick={() => toast.success('Здесь будет Политика конфиденциальности')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-rose-500 transition">Политика конфиденциальности</button>
-            <button onClick={() => toast.success('Здесь будет Оферта')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-rose-500 transition">Оферта</button>
-          </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">© {new Date().getFullYear()} PawLog. Все права защищены.</p>
-        </div>
-      </footer>
+      {/* ВМЕСТО СТАРОГО <footer> ТЕПЕРЬ СТОИТ НОВЫЙ КОМПОНЕНТ */}
+      <Footer />
     </div>
   )
 }
