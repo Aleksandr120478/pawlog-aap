@@ -15,7 +15,7 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
   const [documents, setDocuments] = useState<PetDocument[]>([])
   const [savingRecord, setSavingRecord] = useState(false)
 
-  const [editingRecordId, setEditingRecordId] = useState<string | null>(null) // Вот он!
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [recordType, setRecordType] = useState('weight')
   const [recordValue, setRecordValue] = useState('')
   const [recordDate, setRecordDate] = useState(todayLocal())
@@ -102,8 +102,19 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
     }))
 
     const { error } = await supabase.from('health_records').insert(recordsToInsert)
-    if (error) toast.error(error.message, { id: toastId })
-    else { toast.success('График прививок добавлен!', { id: toastId }); fetchRecords(selectedPet.id) }
+    
+    // ИСПРАВЛЕНИЕ ЗДЕСЬ:
+    if (error) {
+      if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
+        toast.dismiss(toastId) // Убираем плашку загрузки
+        onOpenPremium()       // Открываем окно Premium
+      } else {
+        toast.error(error.message, { id: toastId })
+      }
+    } else { 
+      toast.success('График прививок добавлен!', { id: toastId }); 
+      fetchRecords(selectedPet.id) 
+    }
   }
 
   function startEditingRecord(record: HealthRecord) {
@@ -139,6 +150,7 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
       else { toast.success('Запись обновлена!'); fetchRecords(selectedPetId); resetRecordForm() }
     } else {
       const { error } = await supabase.from('health_records').insert({ ...recordData, pet_id: selectedPetId })
+      
       if (error) {
         if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
            onOpenPremium()
@@ -175,7 +187,7 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
   const weightData = records.filter(r => r.type === 'weight').map(r => ({ date: r.record_date, weight: parseFloat(r.value) })).reverse();
 
   return {
-    records, documents, savingRecord, editingRecordId, setEditingRecordId, // <-- ДОБАВЛЕНО СЮДА
+    records, documents, savingRecord, editingRecordId, setEditingRecordId,
     recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
     deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument, fetchRecords,
