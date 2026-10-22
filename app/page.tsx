@@ -353,8 +353,17 @@ export default function Home() {
       else { toast.success('Профиль обновлен!'); fetchPets(editingPetId); resetPetForm() }
     } else {
       const { data, error } = await supabase.from('pets').insert({ ...petData, user_id: session.user.id }).select().single()
-      if (error) toast.error(error.message)
-      else { toast.success('Питомец добавлен!'); fetchPets(data.id); resetPetForm() }
+      
+      // ИЗМЕНЕНО ЗДЕСЬ: Ловим ошибку лимита из базы и открываем окно Premium
+      if (error) {
+        if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
+           setShowPremiumModal(true)
+        } else {
+           toast.error(error.message)
+        }
+      } else { 
+        toast.success('Питомец добавлен!'); fetchPets(data.id); resetPetForm() 
+      }
     }
     setSavingPet(false)
   }
@@ -380,7 +389,6 @@ export default function Home() {
     else if (selectedPet.species === 'Кошка') templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
     else return toast.error('Шаблоны доступны только для собак и кошек')
 
-    // ЛИМИТ ИЗМЕНЕН НА 20
     if (!hasPremiumAccess && records.length + templates.length > 20) {
       setShowPremiumModal(true)
       return
@@ -437,7 +445,6 @@ export default function Home() {
       return toast.error('Введите число, например 5.2 или 1500')
     }
     
-    // ЛИМИТ ИЗМЕНЕН НА 20
     if (!hasPremiumAccess && !editingRecordId && records.length >= 20) {
       setShowPremiumModal(true)
       return
@@ -452,8 +459,17 @@ export default function Home() {
       else { toast.success('Запись обновлена!'); fetchRecords(selectedPetId); resetRecordForm() }
     } else {
       const { error } = await supabase.from('health_records').insert({ ...recordData, pet_id: selectedPetId })
-      if (error) toast.error(error.message)
-      else { toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm() }
+      
+      // ИЗМЕНЕНО ЗДЕСЬ: Ловим ошибку лимита из базы и открываем окно Premium
+      if (error) {
+        if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
+           setShowPremiumModal(true)
+        } else {
+           toast.error(error.message)
+        }
+      } else { 
+        toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm() 
+      }
     }
     setSavingRecord(false)
   }
@@ -516,7 +532,6 @@ export default function Home() {
 
         <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
         
-        {/* В PremiumModal мы передаем информацию о лимитах, чтобы пользователь видел корректные цифры */}
         <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} />
         
         <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
