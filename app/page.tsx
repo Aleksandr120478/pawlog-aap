@@ -250,6 +250,9 @@ export default function Home() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    // ДОБАВЛЕНО УВЕДОМЛЕНИЕ:
+    toast.success('Файл Excel успешно скачан!');
   }
 
   async function startFreeTrial() {
@@ -297,11 +300,20 @@ export default function Home() {
 
   async function deleteDocument(docId: string, url: string) {
     if (!confirm('Удалить этот документ?')) return
-    const fileName = url.split('/').pop()
-    if (fileName) await supabase.storage.from('documents').remove([fileName])
-    await supabase.from('pet_documents').delete().eq('id', docId)
-    setDocuments(prev => prev.filter(d => d.id !== docId))
-    toast.success('Документ удален')
+    
+    const toastId = toast.loading('Удаление документа...');
+    try {
+      const fileName = url.split('/').pop()
+      if (fileName) await supabase.storage.from('documents').remove([fileName])
+      
+      const { error } = await supabase.from('pet_documents').delete().eq('id', docId)
+      if (error) throw error;
+      
+      setDocuments(prev => prev.filter(d => d.id !== docId))
+      toast.success('Документ удален', { id: toastId });
+    } catch (error: any) {
+      toast.error('Ошибка удаления: ' + error.message, { id: toastId });
+    }
   }
 
   function startEditingPet(pet: Pet) {
@@ -349,9 +361,13 @@ export default function Home() {
 
   async function deletePet(id: string) {
     if (!confirm('Удалить питомца и все его записи?')) return
+    
+    const toastId = toast.loading('Удаление питомца...');
     const { error } = await supabase.from('pets').delete().eq('id', id)
-    if (error) return toast.error(error.message)
-    toast.success('Питомец удалён')
+    
+    if (error) return toast.error(error.message, { id: toastId })
+    
+    toast.success('Питомец удалён', { id: toastId })
     if (selectedPetId === id) setSelectedPetId(null)
     setPets(prev => prev.filter(p => p.id !== id))
     if (editingPetId === id) resetPetForm()
@@ -444,10 +460,15 @@ export default function Home() {
 
   async function deleteRecord(id: string) {
     if (!confirm('Удалить эту запись из истории?')) return
+    
+    const toastId = toast.loading('Удаление записи...');
     const { error } = await supabase.from('health_records').delete().eq('id', id)
-    if (error) return toast.error(error.message)
+    
+    if (error) return toast.error(error.message, { id: toastId })
+    
     setRecords(prev => prev.filter(r => r.id !== id))
     if (editingRecordId === id) resetRecordForm()
+    toast.success('Запись удалена', { id: toastId })
   }
 
   async function handleLogout() {
@@ -625,7 +646,7 @@ export default function Home() {
                   <textarea placeholder="Заметка (необязательно)" value={recordNote} onChange={e => setRecordNote(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none h-16" />
                 )}
                 <div className="flex gap-2">
-                  <button type="submit" disabled={savingRecord} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition ${editingRecordId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>{savingRecord ? 'Сохраняем...' : editingRecordId ? 'Обновить' : 'Сохранить'}</button>
+                  <button type="submit" disabled={savingRecord} className={`flex-1 text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-60 ${editingRecordId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>{savingRecord ? 'Сохраняем...' : editingRecordId ? 'Обновить' : 'Сохранить'}</button>
                   {editingRecordId && <button type="button" onClick={resetRecordForm} className="px-4 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-sm hover:bg-gray-300">Отмена</button>}
                 </div>
               </form>
