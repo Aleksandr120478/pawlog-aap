@@ -49,7 +49,7 @@ export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startF
         <div className="p-6 md:p-8">
           <ul className="space-y-3 mb-6 text-sm text-gray-700 dark:text-gray-300">
             <li className="flex items-center gap-3">✨ <b>Безлимитные питомцы</b> (вместо 2)</li>
-            <li className="flex items-center gap-3">✨ <b>Безлимитные записи</b> (вместо 30)</li>
+            <li className="flex items-center gap-3">✨ <b>Безлимитные записи</b> (вместо 20)</li>
             <li className="flex items-center gap-3">✨ Автоматические графики прививок</li>
             <li className="flex items-center gap-3">✨ Приоритетная поддержка</li>
           </ul>
