@@ -26,6 +26,8 @@ export default function RecordForm({
   saveRecord, recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate,
   recordNextDate, setRecordNextDate, recordNote, setRecordNote, savingRecord, resetRecordForm
 }: RecordFormProps) {
+  const isNumberType = recordType === 'weight' || recordType === 'expense';
+
   return (
     <section id="record-form" className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
       <div className="flex justify-between items-center mb-4">
@@ -47,7 +49,18 @@ export default function RecordForm({
             <option value="expense">Расход (₽)</option>
             <option value="note">Заметка (Дневник)</option>
           </select>
-          <input type="text" placeholder={recordType === 'weight' ? 'Например, 12.5' : recordType === 'expense' ? 'Сумма (например, 1500)' : recordType === 'note' ? 'Что случилось?' : 'Название'} value={recordValue} onChange={e => setRecordValue(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+          
+          {/* УМНОЕ ПОЛЕ ВВОДА */}
+          <input 
+            type={isNumberType ? "number" : "text"} 
+            inputMode={isNumberType ? "decimal" : "text"}
+            step="any"
+            placeholder={recordType === 'weight' ? 'Например, 12.5' : recordType === 'expense' ? 'Сумма (например, 1500)' : recordType === 'note' ? 'Что случилось?' : 'Название'} 
+            value={recordValue} 
+            onChange={e => setRecordValue(e.target.value)} 
+            className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" 
+          />
+
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Дата события</label>
             <input type="date" value={recordDate} onChange={e => setRecordDate(e.target.value)} className="w-full px-3 py-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
