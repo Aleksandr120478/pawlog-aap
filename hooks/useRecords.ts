@@ -15,8 +15,7 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
   const [documents, setDocuments] = useState<PetDocument[]>([])
   const [savingRecord, setSavingRecord] = useState(false)
 
-  // Состояния формы записи
-  const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null) // Вот он!
   const [recordType, setRecordType] = useState('weight')
   const [recordValue, setRecordValue] = useState('')
   const [recordDate, setRecordDate] = useState(todayLocal())
@@ -24,8 +23,6 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
   const [recordNextDate, setRecordNextDate] = useState('')
 
   const fetchRecords = useCallback(async (petId: string) => {
-    // КРИТИКА: Здесь мы всё еще грузим ВСЕ записи (select('*')). 
-    // Позже нужно будет добавить .limit(20) и пагинацию.
     const { data, error } = await supabase.from('health_records').select('*').eq('pet_id', petId).order('record_date', { ascending: false })
     if (error) toast.error(error.message)
     else setRecords(data || [])
@@ -165,7 +162,6 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
     toast.success('Запись удалена', { id: toastId })
   }
 
-  // ВЫЧИСЛЯЕМЫЕ ЗНАЧЕНИЯ (Переносим сюда, чтобы разгрузить page.tsx)
   const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
   
   const upcomingEvents = records.filter(r => {
@@ -179,8 +175,8 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
   const weightData = records.filter(r => r.type === 'weight').map(r => ({ date: r.record_date, weight: parseFloat(r.value) })).reverse();
 
   return {
-    records, documents, savingRecord, editingRecordId, recordType, setRecordType,
-    recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
+    records, documents, savingRecord, editingRecordId, setEditingRecordId, // <-- ДОБАВЛЕНО СЮДА
+    recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
     deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument, fetchRecords,
     totalExpenses, upcomingEvents, weightData
