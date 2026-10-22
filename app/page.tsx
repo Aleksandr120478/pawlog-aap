@@ -11,6 +11,7 @@ import Footer from '../components/Footer'
 import PetsSidebar from '../components/PetsSidebar'
 import RecordForm from '../components/RecordForm'
 import PetTimeline from '../components/PetTimeline'
+import SkeletonLoader from '../components/SkeletonLoader' // <-- НОВЫЙ ИМПОРТ
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
 
@@ -215,7 +216,7 @@ export default function Home() {
     setRecordDate(date)
     setShowCalendarModal(false)
     setDashboardTab('list')
-    setMobileTab('record') // Переключаем на вкладку записи на мобильном
+    setMobileTab('record')
     
     setTimeout(() => {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
@@ -240,7 +241,8 @@ export default function Home() {
     return { text: `📅 ${nextDate}`, color: 'text-gray-500 dark:text-gray-400' };
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 dark:bg-gray-900">Загрузка...</div>
+  // ЗАМЕНИЛИ ТЕКСТ НА СКЕЛЕТОН
+  if (loading) return <SkeletonLoader />
 
   if (!session) {
     return <LandingPage isDark={isDark} toggleTheme={toggleTheme} />
@@ -281,10 +283,8 @@ export default function Home() {
           onLogout={handleLogout} 
         />
 
-        {/* Добавлен pb-20 md:pb-0, чтобы нижнее меню не перекрывало контент на мобильном */}
         <main className="max-w-6xl mx-auto p-4 md:p-6 pb-20 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
           
-          {/* Оборачиваем колонки в div с логикой видимости для мобильных */}
           <div className={`${mobileTab === 'pets' ? 'block' : 'hidden'} md:block h-full`}>
             <PetsSidebar 
               pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId}
@@ -321,7 +321,6 @@ export default function Home() {
 
         </main>
 
-        {/* МОБИЛЬНОЕ НИЖНЕЕ МЕНЮ */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-around p-2 z-50 print:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
           <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400'}`}>
             <span className="text-xl">🐾</span>
