@@ -23,7 +23,14 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
   const [recordNextDate, setRecordNextDate] = useState('')
 
   const fetchRecords = useCallback(async (petId: string) => {
-    const { data, error } = await supabase.from('health_records').select('*').eq('pet_id', petId).order('record_date', { ascending: false })
+    // ДОБАВЛЕНО .limit(50) - загружаем только последние 50 записей для производительности
+    const { data, error } = await supabase
+      .from('health_records')
+      .select('*')
+      .eq('pet_id', petId)
+      .order('record_date', { ascending: false })
+      .limit(50)
+      
     if (error) toast.error(error.message)
     else setRecords(data || [])
   }, [])
@@ -103,11 +110,10 @@ export function useRecords(selectedPetId: string | null, selectedPet: any, hasPr
 
     const { error } = await supabase.from('health_records').insert(recordsToInsert)
     
-    // ИСПРАВЛЕНИЕ ЗДЕСЬ:
     if (error) {
       if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
-        toast.dismiss(toastId) // Убираем плашку загрузки
-        onOpenPremium()       // Открываем окно Premium
+        toast.dismiss(toastId)
+        onOpenPremium()
       } else {
         toast.error(error.message, { id: toastId })
       }
