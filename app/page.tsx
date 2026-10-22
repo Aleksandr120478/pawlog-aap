@@ -9,7 +9,7 @@ import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals
 import { RECORD_LABELS } from '../components/types'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import PetsSidebar from '../components/PetsSidebar' // <-- ИМПОРТ
+import PetsSidebar from '../components/PetsSidebar' 
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
 
@@ -58,14 +58,13 @@ export default function Home() {
 
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
 
-  const petsHook = usePets(session, hasPremiumAccess, () => setShowPremiumModal(true))
   const {
     pets, setPets, selectedPetId, setSelectedPetId, selectedPet, savingPet, ownedPetsCount,
     fetchPets, editingPetId, petName, setPetName, petSpecies, setPetSpecies, petBreed, setPetBreed,
     petBirthDate, setPetBirthDate, petFile, setPetFile, petAllergies, setPetAllergies, 
     petChronic, setPetChronic, petFood, setPetFood, petVet, setPetVet, 
     startEditingPet, resetPetForm, savePet, deletePet
-  } = petsHook
+  } = usePets(session, hasPremiumAccess, () => setShowPremiumModal(true))
 
   const {
     records, documents, savingRecord, editingRecordId, setEditingRecordId, 
@@ -294,12 +293,39 @@ export default function Home() {
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
           
-          {/* ВМЕСТО ОГРОМНОГО БЛОКА С ПИТОМЦАМИ ТЕПЕРЬ ВЫЗОВ КОМПОНЕНТА */}
+          {/* ЯВНАЯ ПЕРЕДАЧА ПРОПСОВ БЕЗ {...petsHook} */}
           <PetsSidebar 
-            {...petsHook} 
-            session={session} 
-            hasPremiumAccess={hasPremiumAccess} 
-            openShareModal={openShareModal} 
+            pets={pets}
+            selectedPetId={selectedPetId}
+            setSelectedPetId={setSelectedPetId}
+            session={session}
+            hasPremiumAccess={hasPremiumAccess}
+            ownedPetsCount={ownedPetsCount}
+            editingPetId={editingPetId}
+            petName={petName}
+            setPetName={setPetName}
+            petSpecies={petSpecies}
+            setPetSpecies={setPetSpecies}
+            petBreed={petBreed}
+            setPetBreed={setPetBreed}
+            petBirthDate={petBirthDate}
+            setPetBirthDate={setPetBirthDate}
+            petFile={petFile}
+            setPetFile={setPetFile}
+            petAllergies={petAllergies}
+            setPetAllergies={setPetAllergies}
+            petChronic={petChronic}
+            setPetChronic={setPetChronic}
+            petFood={petFood}
+            setPetFood={setPetFood}
+            petVet={petVet}
+            setPetVet={setPetVet}
+            savingPet={savingPet}
+            savePet={savePet}
+            deletePet={deletePet}
+            startEditingPet={startEditingPet}
+            resetPetForm={resetPetForm}
+            openShareModal={openShareModal}
           />
 
           <section id="record-form" className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
