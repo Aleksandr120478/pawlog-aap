@@ -40,6 +40,10 @@ export default function PetTimeline({
   exportToCSV, isDark, startEditingRecord, deleteRecord, uploadDocument, deleteDocument,
   upcomingEvents, totalExpenses, weightData, getReminderStatus
 }: PetTimelineProps) {
+  
+  // Вычисляем последний вес из записей (записи идут от новых к старым, поэтому берем первую найденную)
+  const lastWeightRecord = records.find(r => r.type === 'weight');
+
   return (
     <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:border-none print:shadow-none print:p-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 print:mb-8">
@@ -85,6 +89,22 @@ export default function PetTimeline({
         <>
           {dashboardTab === 'list' && (
             <>
+              {/* БЛОК УМНОЙ СТАТИСТИКИ */}
+              <div className="grid grid-cols-3 gap-2 mb-4 print:hidden">
+                <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 text-center">
+                  <p className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 mb-1">Записей</p>
+                  <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{records.length}</p>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800/50 text-center">
+                  <p className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Расходы</p>
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{totalExpenses > 0 ? `${totalExpenses.toLocaleString('ru-RU')} ₽` : '0 ₽'}</p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/50 text-center">
+                  <p className="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 mb-1">Вес</p>
+                  <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{lastWeightRecord ? `${lastWeightRecord.value} кг` : '—'}</p>
+                </div>
+              </div>
+
               {upcomingEvents.length > 0 && (
                 <div className="mb-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 print:hidden">
                   <h3 className="text-sm font-bold text-orange-800 dark:text-orange-300 mb-2 flex items-center gap-2">⚠️ Внимание! Ближайшие события</h3>
@@ -98,12 +118,7 @@ export default function PetTimeline({
                   </ul>
                 </div>
               )}
-              {totalExpenses > 0 && (
-                <div className="mb-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 p-3 rounded-xl flex justify-between items-center print:hidden">
-                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Всего потрачено:</span>
-                  <span className="text-lg font-bold text-emerald-800 dark:text-emerald-300">{totalExpenses.toLocaleString('ru-RU')} ₽</span>
-                </div>
-              )}
+
               {weightData.length > 1 && (
                 <div className="mb-6 print:hidden bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                   <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">Динамика веса (кг)</h3>
@@ -120,6 +135,7 @@ export default function PetTimeline({
                   </div>
                 </div>
               )}
+
               {records.length === 0 ? (
                 <div className="text-center p-6 bg-rose-50/50 dark:bg-rose-900/20 rounded-xl border border-dashed border-rose-200 dark:border-rose-800 mt-6">
                   <span className="text-4xl mb-2 block">📝</span>
