@@ -209,12 +209,17 @@ export default function Home() {
 
   async function handleMockPayment() {
     if (!session) return
-    const toastId = toast.loading('Обработка платежа...');
+
+    // ЗАЩИТА: Кнопка оплаты работает только для твоего email
+    if (session.user.email !== 'anapa4867754@yandex.ru') {
+      toast.error('Оплата временно недоступна. Мы работаем над подключением кассы!');
+      return;
+    }
+
+    const toastId = toast.loading('Обработка тестового платежа...');
     
-    // Имитируем задержку банка (1.5 секунды), чтобы было реалистично
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Обновляем статус в базе данных Supabase
     const { error } = await supabase
       .from('user_status')
       .update({ is_premium: true })
@@ -223,7 +228,7 @@ export default function Home() {
     if (error) {
       toast.error('Ошибка оплаты: ' + error.message, { id: toastId });
     } else {
-      toast.success('Оплата прошла успешно! Добро пожаловать в Premium! 🎉', { id: toastId });
+      toast.success('Тестовая оплата прошла! Premium активирован! 🎉', { id: toastId });
       setIsPremium(true); 
       setShowPremiumModal(false); 
     }
