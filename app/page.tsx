@@ -193,14 +193,16 @@ export default function Home() {
     toast.success('Файл Excel успешно скачан!');
   }
 
-  async function startFreeTrial() {
+    async function startFreeTrial() {
     if (!session) return
     const toastId = toast.loading('Активация Premium...')
-    const trialEnd = new Date()
-    trialEnd.setDate(trialEnd.getDate() + 7)
-    const { error } = await supabase.from('user_status').update({ trial_ends_at: trialEnd.toISOString() }).eq('user_id', session.user.id)
-    if (error) toast.error(error.message, { id: toastId })
-    else {
+    
+    // Мы больше не обновляем таблицу напрямую. Мы вызываем нашу безопасную функцию в базе.
+    const { error } = await supabase.rpc('start_free_trial')
+    
+    if (error) {
+      toast.error(error.message, { id: toastId })
+    } else {
       toast.success('Пробный период на 7 дней активирован!', { id: toastId })
       setShowPremiumModal(false)
       fetchUserStatus(session.user.id)
