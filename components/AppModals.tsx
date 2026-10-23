@@ -1,7 +1,17 @@
 'use client'
 import toast from 'react-hot-toast'
 
-export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmit, petShares, removeShare }: any) {
+interface ShareModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  shareEmail: string;
+  setShareEmail: (v: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  petShares: any[];
+  removeShare: (id: string) => void;
+}
+
+export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmit, petShares, removeShare }: ShareModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
@@ -36,7 +46,18 @@ export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmi
   )
 }
 
-export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startFreeTrial, billingPeriod, setBillingPeriod }: any) {
+interface PremiumModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  isPremium: boolean;
+  trialDaysLeft: number | null;
+  startFreeTrial: () => void;
+  billingPeriod: 'monthly' | 'annual';
+  setBillingPeriod: (v: 'monthly' | 'annual') => void;
+  onPay: () => void; // <-- ДОБАВИЛИ ПРОПС ДЛЯ ОПЛАТЫ
+}
+
+export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startFreeTrial, billingPeriod, setBillingPeriod, onPay }: PremiumModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
@@ -71,14 +92,27 @@ export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startF
           <div className="text-center mb-6">
             {billingPeriod === 'monthly' ? (<><span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span><span className="text-gray-500 dark:text-gray-400"> / мес</span></>) : (<><span className="text-4xl font-bold text-gray-900 dark:text-white">1190 ₽</span><span className="text-gray-500 dark:text-gray-400"> / год</span><p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год</p></>)}
           </div>
-          <button onClick={() => { toast.success('Здесь будет оплата!'); onClose(); }} className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Оплатить</button>
+          {/* ЗАМЕНИЛИ ЗАГЛУШКУ НА onPay */}
+          <button onClick={onPay} className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Оплатить</button>
         </div>
       </div>
     </div>
   )
 }
 
-export function SettingsModal({ isOpen, onClose, session, isPremium, trialDaysLeft, newPassword, setNewPassword, updatePassword, updatingPassword }: any) {
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  session: any;
+  isPremium: boolean;
+  trialDaysLeft: number | null;
+  newPassword: string;
+  setNewPassword: (v: string) => void;
+  updatePassword: (e: React.FormEvent) => void;
+  updatingPassword: boolean;
+}
+
+export function SettingsModal({ isOpen, onClose, session, isPremium, trialDaysLeft, newPassword, setNewPassword, updatePassword, updatingPassword }: SettingsModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
