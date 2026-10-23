@@ -11,7 +11,7 @@ import Footer from '../components/Footer'
 import PetsSidebar from '../components/PetsSidebar'
 import RecordForm from '../components/RecordForm'
 import PetTimeline from '../components/PetTimeline'
-import SkeletonLoader from '../components/SkeletonLoader' // <-- НОВЫЙ ИМПОРТ
+import SkeletonLoader from '../components/SkeletonLoader'
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
 
@@ -207,6 +207,28 @@ export default function Home() {
     }
   }
 
+  async function handleMockPayment() {
+    if (!session) return
+    const toastId = toast.loading('Обработка платежа...');
+    
+    // Имитируем задержку банка (1.5 секунды), чтобы было реалистично
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Обновляем статус в базе данных Supabase
+    const { error } = await supabase
+      .from('user_status')
+      .update({ is_premium: true })
+      .eq('user_id', session.user.id);
+
+    if (error) {
+      toast.error('Ошибка оплаты: ' + error.message, { id: toastId });
+    } else {
+      toast.success('Оплата прошла успешно! Добро пожаловать в Premium! 🎉', { id: toastId });
+      setIsPremium(true); 
+      setShowPremiumModal(false); 
+    }
+  }
+
   function handleAddFromCalendar(date: string) {
     setEditingRecordId(null)
     setRecordType('weight')
@@ -241,7 +263,6 @@ export default function Home() {
     return { text: `📅 ${nextDate}`, color: 'text-gray-500 dark:text-gray-400' };
   }
 
-  // ЗАМЕНИЛИ ТЕКСТ НА СКЕЛЕТОН
   if (loading) return <SkeletonLoader />
 
   if (!session) {
@@ -269,7 +290,16 @@ export default function Home() {
 
         <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
         
-        <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} />
+        <PremiumModal 
+          isOpen={showPremiumModal} 
+          onClose={() => setShowPremiumModal(false)} 
+          isPremium={isPremium} 
+          trialDaysLeft={trialDaysLeft} 
+          startFreeTrial={startFreeTrial} 
+          billingPeriod={billingPeriod} 
+          setBillingPeriod={setBillingPeriod} 
+          onPay={handleMockPayment} 
+        />
         
         <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
 
