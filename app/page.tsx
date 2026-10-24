@@ -15,7 +15,7 @@ import PetTimeline from '../components/PetTimeline'
 import SkeletonLoader from '../components/SkeletonLoader'
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
-import { generateICS } from '../lib/ics' // <-- Наш новый импорт
+import { generateICS } from '../lib/ics'
 
 function todayLocal() {
   const d = new Date()
@@ -195,7 +195,6 @@ export default function Home() {
     toast.success('Файл Excel успешно скачан!');
   }
 
-  // --- НОВАЯ ФУНКЦИЯ ЭКСПОРТА В КАЛЕНДАРЬ ---
   function exportToICS() {
     if (!selectedPet || records.length === 0) return;
 
@@ -366,7 +365,7 @@ export default function Home() {
               selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
               records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal}
               exportToCSV={exportToCSV} 
-              exportToICS={exportToICS} // <-- Передаем новую функцию
+              exportToICS={exportToICS}
               isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord}
               uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents}
               totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus}
