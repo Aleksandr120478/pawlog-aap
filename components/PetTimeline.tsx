@@ -64,6 +64,7 @@ export default function PetTimeline({
         </button>
         <button onClick={exportToICS} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
           📅 Экспорт в Календарь (.ics)
+          
         </button>
       </div>
 
