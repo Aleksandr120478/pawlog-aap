@@ -1,7 +1,9 @@
+import React from 'react'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
+import InstallPWA from '../components/InstallPWA'
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
@@ -35,6 +37,24 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <Toaster position="top-right" />
+        
+        <InstallPWA />
+
+        {process.env.NODE_ENV === 'production' && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function(error) {
+                      console.log('Service Worker registration failed:', error);
+                    });
+                  });
+                }
+              `,
+            }}
+          />
+        )}
       </body>
     </html>
   )
