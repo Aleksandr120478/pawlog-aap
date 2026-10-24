@@ -1,7 +1,11 @@
 'use client'
 import React from 'react'
+import toast from 'react-hot-toast'
+import { saveAs } from 'file-saver'
+import { pdf } from '@react-pdf/renderer'
 import { RECORD_LABELS, Pet, HealthRecord, PetDocument } from './types'
 import PetInsights from './PetInsights'
+import PdfReport from './PdfReport'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface PetTimelineProps {
@@ -37,6 +41,26 @@ export default function PetTimeline({
         Выберите питомца, чтобы увидеть историю.
       </div>
     )
+  }
+
+  // Функция генерации и скачивания PDF
+  const handleExportPDF = async () => {
+    if (!selectedPet) return;
+    const toastId = toast.loading('Генерация PDF...', { id: 'pdf-loading' });
+    
+    try {
+      // Создаем PDF-документ на основе наших данных и компонента PdfReport
+      const blob = await pdf(
+        <PdfReport pet={selectedPet} records={records} totalExpenses={totalExpenses} />
+      ).toBlob();
+      
+      // Скачиваем файл
+      saveAs(blob, `${selectedPet.name}_Отчет.pdf`);
+      toast.success('PDF успешно скачан!', { id: toastId });
+    } catch (error) {
+      console.error(error);
+      toast.error('Ошибка при создании PDF', { id: toastId });
+    }
   }
 
   return (
@@ -81,13 +105,17 @@ export default function PetTimeline({
       {dashboardTab === 'list' && (
         <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
           <button onClick={() => setShowCalendarModal(true)} className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium">
-            📅 Открыть календарь
+            📅 Календарь
           </button>
           <button onClick={exportToCSV} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
-            📊 Экспорт в Excel
+            📊 Excel
           </button>
           <button onClick={exportToICS} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
-            📅 Экспорт в Календарь (.ics)
+            📅 .ics
+          </button>
+          {/* НОВАЯ КНОПКА PDF */}
+          <button onClick={handleExportPDF} className="text-xs bg-rose-500 text-white hover:bg-rose-600 px-3 py-1.5 rounded-lg transition shadow-md shadow-rose-500/20">
+            📄 Скачать PDF
           </button>
         </div>
       )}
@@ -131,9 +159,7 @@ export default function PetTimeline({
             </ul>
           )
         ) : (
-          // ВКЛАДКА ДОКУМЕНТЫ
           <div className="h-full flex flex-col">
-            {/* Кнопка добавления документа (всегда сверху) */}
             <div className="flex justify-between items-center mb-3 shrink-0">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ваши файлы</span>
               <label className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer">
