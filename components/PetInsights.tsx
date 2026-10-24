@@ -4,7 +4,7 @@ import { HealthRecord, RECORD_LABELS } from './types'
 
 interface PetInsightsProps {
   records: HealthRecord[];
-  upcomingEvents: HealthRecord[]; // Теперь строгий тип!
+  upcomingEvents: HealthRecord[];
   totalExpenses: number;
 }
 
@@ -25,19 +25,31 @@ export default function PetInsights({ records, upcomingEvents, totalExpenses }: 
     else weightTrend = { text: '0', color: 'text-gray-500' };
   }
 
-  // 2. Ближайшее событие (используем next_date из твоего типа)
+  // 2. Ближайшее событие с умной проверкой
   const nextEvent = upcomingEvents[0];
-  let daysToEvent = null;
+  let daysToEventText = '—';
+  let eventColor = 'text-gray-800 dark:text-white';
+
   if (nextEvent && nextEvent.next_date) {
     const today = new Date();
+    today.setHours(0, 0, 0, 0); 
     const eventDate = new Date(nextEvent.next_date);
     const diffTime = eventDate.getTime() - today.getTime();
-    daysToEvent = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      daysToEventText = 'Просрочено!';
+      eventColor = 'text-red-500';
+    } else if (diffDays === 0) {
+      daysToEventText = 'Сегодня!';
+      eventColor = 'text-orange-500';
+    } else {
+      daysToEventText = `${diffDays} дн.`;
+    }
   }
 
   return (
     <div className="grid grid-cols-3 gap-2 mb-4 shrink-0">
-      {/* Карточка: Вес */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800 text-center">
         <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Последний вес</p>
         <p className="text-lg font-bold text-gray-800 dark:text-white">
@@ -50,16 +62,14 @@ export default function PetInsights({ records, upcomingEvents, totalExpenses }: 
         )}
       </div>
 
-      {/* Карточка: События */}
       <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-100 dark:border-orange-800 text-center">
         <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">До прививки</p>
-        <p className="text-lg font-bold text-gray-800 dark:text-white">
-          {daysToEvent !== null ? `${daysToEvent} дн.` : '—'}
+        <p className={`text-lg font-bold ${eventColor}`}>
+          {daysToEventText}
         </p>
         {nextEvent && <p className="text-[10px] text-gray-500 truncate">{RECORD_LABELS[nextEvent.type] || nextEvent.type}</p>}
       </div>
 
-      {/* Карточка: Расходы */}
       <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800 text-center">
         <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">Расходы</p>
         <p className="text-lg font-bold text-gray-800 dark:text-white">
