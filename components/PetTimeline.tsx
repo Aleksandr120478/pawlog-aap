@@ -20,7 +20,7 @@ interface PetTimelineProps {
   deleteDocument: (id: string, path: string) => void;
   upcomingEvents: HealthRecord[];
   totalExpenses: number;
-  weightData: any[]; // Возвращен для совместимости с page.tsx
+  weightData: any[];
   getReminderStatus: (date: string | null) => { text: string; color: string } | null;
 }
 
@@ -41,7 +41,6 @@ export default function PetTimeline({
   return (
     <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col md:max-h-[calc(100vh-120px)]">
       
-      {/* Шапка с вкладками */}
       <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2 shrink-0">
         <h2 className="text-lg font-bold text-gray-800 dark:text-white">Дневник: {selectedPet.name}</h2>
         <div className="flex gap-2">
@@ -60,10 +59,8 @@ export default function PetTimeline({
         </div>
       </div>
 
-      {/* Наши новые карточки статистики */}
       <PetInsights records={records} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} />
 
-      {/* Кнопки экспорта и Календаря */}
       <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
         <button onClick={() => setShowCalendarModal(true)} className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium">
           📅 Открыть календарь
@@ -76,7 +73,6 @@ export default function PetTimeline({
         </button>
       </div>
 
-      {/* Список записей */}
       <div className="flex-1 overflow-y-auto pr-2">
         {dashboardTab === 'list' ? (
           records.length === 0 ? (
@@ -92,7 +88,6 @@ export default function PetTimeline({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500">{r.record_date}</span>
-                          {/* Кнопки редактирования и удаления */}
                           <button onClick={() => startEditingRecord(r)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition text-xs">✎</button>
                           <button onClick={() => deleteRecord(r.id)} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition text-xs">✕</button>
                         </div>

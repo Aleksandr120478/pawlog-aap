@@ -16,10 +16,15 @@ export function generateICS(events: ICSEvent[]): string {
     icsContent += `DTSTAMP:${now}\r\n`;
     icsContent += `DTSTART;VALUE=DATE:${formattedDate}\r\n`;
     icsContent += `SUMMARY:${event.title}\r\n`;
+    
+    // Правило повторения каждый год
+    icsContent += `RRULE:FREQ=YEARLY\r\n`;
+
     if (event.description) {
       const safeDesc = event.description.replace(/\n/g, '\\n').replace(/,/g, '\\,');
       icsContent += `DESCRIPTION:${safeDesc}\r\n`;
     }
+    
     icsContent += 'END:VEVENT\r\n';
   });
 
