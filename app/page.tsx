@@ -13,7 +13,6 @@ import PetsSidebar from '../components/PetsSidebar'
 import RecordForm from '../components/RecordForm'
 import PetTimeline from '../components/PetTimeline'
 import SkeletonLoader from '../components/SkeletonLoader'
-import InstallPWA from '../components/InstallPWA' // <-- НОВЫЙ ИМПОРТ
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
 import { generateICS } from '../lib/ics'
@@ -355,9 +354,6 @@ export default function Home() {
             <PetTimeline selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord} uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus} />
           </div>
         </main>
-
-        {/* ПЛАВАЮЩАЯ КНОПКА УСТАНОВКИ PWA */}
-        <InstallPWA />
 
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 pb-safe z-50 print:hidden shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
           <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50/80 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">🐾</span><span className="text-[10px] font-medium mt-1">Питомцы</span></button>
