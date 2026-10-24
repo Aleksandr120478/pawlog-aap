@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
 import { RECORD_LABELS, Pet, HealthRecord } from './types'
+import PetInsights from './PetInsights' // <-- Импортируем новый компонент
 
 interface PetTimelineProps {
   selectedPet: Pet | null;
@@ -17,7 +18,7 @@ interface PetTimelineProps {
   deleteRecord: (id: string) => void;
   uploadDocument: (e: React.ChangeEvent<HTMLInputElement>) => void;
   deleteDocument: (id: string, path: string) => void;
-  upcomingEvents: any[];
+  upcomingEvents: HealthRecord[];
   totalExpenses: number;
   weightData: any[];
   getReminderStatus: (date: string | null) => { text: string; color: string } | null;
@@ -57,6 +58,9 @@ export default function PetTimeline({
           </button>
         </div>
       </div>
+
+      {/* Вставляем блок Умной статистики! */}
+      <PetInsights records={records} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} />
 
       <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
         <button onClick={exportToCSV} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
