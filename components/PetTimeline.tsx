@@ -2,6 +2,7 @@
 import React from 'react'
 import { RECORD_LABELS, Pet, HealthRecord, PetDocument } from './types'
 import PetInsights from './PetInsights'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface PetTimelineProps {
   selectedPet: Pet | null;
@@ -20,7 +21,7 @@ interface PetTimelineProps {
   deleteDocument: (id: string, path: string) => void;
   upcomingEvents: HealthRecord[];
   totalExpenses: number;
-  weightData: any[];
+  weightData: { date: string; weight: number }[]; // <-- Строгий тип, никаких any!
   getReminderStatus: (date: string | null) => { text: string; color: string } | null;
 }
 
@@ -41,6 +42,7 @@ export default function PetTimeline({
   return (
     <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col md:max-h-[calc(100vh-120px)]">
       
+      {/* Шапка с вкладками */}
       <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2 shrink-0">
         <h2 className="text-lg font-bold text-gray-800 dark:text-white">Дневник: {selectedPet.name}</h2>
         <div className="flex gap-2">
@@ -59,8 +61,35 @@ export default function PetTimeline({
         </div>
       </div>
 
+      {/* Наши новые карточки статистики */}
       <PetInsights records={records} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} />
 
+      {/* НОВЫЙ БЛОК: График веса */}
+      {dashboardTab === 'list' && weightData.length > 0 && (
+        <div className="mb-6 h-48 w-full bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700 shrink-0">
+          <p className="text-xs font-semibold text-gray-500 mb-2 ml-2 uppercase tracking-wider">Динамика веса</p>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={weightData}>
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} domain={['auto', 'auto']} width={30} />
+              <Tooltip 
+                contentStyle={{ borderRadius: '8px', fontSize: '12px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} 
+                itemStyle={{ color: '#e11d48', fontWeight: 'bold' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="weight" 
+                stroke="#e11d48" 
+                strokeWidth={3} 
+                dot={{ r: 4, strokeWidth: 2, fill: isDark ? '#1f2937' : '#fff' }} 
+                activeDot={{ r: 6 }} 
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Кнопки экспорта и Календаря */}
       <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
         <button onClick={() => setShowCalendarModal(true)} className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium">
           📅 Открыть календарь
@@ -73,6 +102,7 @@ export default function PetTimeline({
         </button>
       </div>
 
+      {/* Список записей */}
       <div className="flex-1 overflow-y-auto pr-2">
         {dashboardTab === 'list' ? (
           records.length === 0 ? (
@@ -80,7 +110,7 @@ export default function PetTimeline({
           ) : (
             <ul className="space-y-3">
                {records.map((r: HealthRecord) => (
-                  <li key={r.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 group">
+                  <li key={r.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 group transition-all hover:shadow-md">
                      <div className="flex justify-between items-start">
                         <div>
                           <span className="font-medium text-gray-800 dark:text-gray-200">{RECORD_LABELS[r.type] || r.type}</span>
