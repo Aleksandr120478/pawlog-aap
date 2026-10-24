@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-// TypeScript не знает про этот ивент из коробки, поэтому объявляем его
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
@@ -12,29 +11,48 @@ export default function InstallPWA() {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
+    // Если приложение уже установлено и открыто как PWA, не показываем
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      return
+    }
+
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      
-      // Показываем кнопку, только если пользователь ранее не закрыл её
       if (!localStorage.getItem('pwa-dismissed')) {
         setIsVisible(true)
       }
     }
 
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+
+    // Если через 2 секунды нативный промпт не пришел, но мы на телефоне — показываем сами
+    const timer = setTimeout(() => {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      if (isMobile && !localStorage.getItem('pwa-dismissed')) {
+        setIsVisible(true)
+      }
+    }, 2000)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      clearTimeout(timer)
+    }
   }, [])
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    
-    if (outcome === 'accepted') {
-      setIsVisible(false)
+    if (deferredPrompt) {
+      // Нативный установщик
+      deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') {
+        setIsVisible(false)
+      }
+      setDeferredPrompt(null)
+    } else {
+      // Инструкция для iPhone или если браузер заблокировал установку
+      alert('Чтобы установить приложение:\n\n1. Нажмите на три точки (или кнопку Поделиться) в браузере.\n2. Выберите "Установить приложение" или "Добавить на главный экран".')
     }
-    setDeferredPrompt(null)
   }
 
   const handleDismiss = () => {
