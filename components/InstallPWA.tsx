@@ -11,6 +11,7 @@ export default function InstallPWA() {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
+    // Не показываем, если уже установлено
     if (window.matchMedia('(display-mode: standalone)').matches) return
 
     const handler = (e: Event) => {
@@ -20,6 +21,7 @@ export default function InstallPWA() {
     
     window.addEventListener('beforeinstallprompt', handler)
 
+    // Таймер для показа (оставили для тестов на телефоне)
     const timer = setTimeout(() => {
       if (!localStorage.getItem('pwa-dismissed')) {
         setIsVisible(true)
@@ -51,11 +53,11 @@ export default function InstallPWA() {
   if (!isVisible) return null
 
   return (
-    <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[340px] animate-in slide-in-from-bottom-8 duration-500 ease-out fade-in print:hidden">
+    // Класс md:hidden скрывает кнопку на компьютерах, оставляя только на мобильных
+    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[340px] animate-in slide-in-from-bottom-8 duration-500 ease-out fade-in print:hidden md:hidden">
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-3 flex items-center justify-between gap-3">
         
         <div className="flex items-center gap-3">
-          {/* Стильная иконка скачивания */}
           <div className="bg-rose-50 dark:bg-rose-900/30 p-2.5 rounded-xl text-rose-500 flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
