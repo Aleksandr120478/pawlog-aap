@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { Session } from '@supabase/supabase-js'
 import toast from 'react-hot-toast'
 import LandingPage from '../components/LandingPage'
 import CalendarModal from '../components/CalendarModal'
@@ -14,6 +15,7 @@ import PetTimeline from '../components/PetTimeline'
 import SkeletonLoader from '../components/SkeletonLoader'
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
+import { generateICS } from '../lib/ics' // <-- Наш новый импорт
 
 function todayLocal() {
   const d = new Date()
@@ -22,7 +24,7 @@ function todayLocal() {
 }
 
 export default function Home() {
-  const [session, setSession] = useState<any>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [isDark, setIsDark] = useState(false)
   const [mobileTab, setMobileTab] = useState<'pets' | 'record' | 'timeline'>('pets')
@@ -127,7 +129,7 @@ export default function Home() {
     e.preventDefault()
     const cleanEmail = shareEmail.trim().toLowerCase();
     if (!cleanEmail || !sharingPetId) return toast.error('Введите email')
-    if (cleanEmail === session.user.email.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой')
+    if (cleanEmail === session?.user.email?.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой')
     
     const toastId = toast.loading('Отправка приглашения...')
     const { data: existing } = await supabase.from('pet_shares').select('id').eq('pet_id', sharingPetId).eq('shared_with_email', cleanEmail).single()
@@ -193,13 +195,41 @@ export default function Home() {
     toast.success('Файл Excel успешно скачан!');
   }
 
-    async function startFreeTrial() {
+  // --- НОВАЯ ФУНКЦИЯ ЭКСПОРТА В КАЛЕНДАРЬ ---
+  function exportToICS() {
+    if (!selectedPet || records.length === 0) return;
+
+    const eventsToExport = records
+      .filter(r => r.next_date)
+      .map(r => ({
+        id: r.id,
+        title: `${selectedPet.name}: ${RECORD_LABELS[r.type] || r.type}`,
+        description: r.note || '',
+        date: r.next_date as string
+      }));
+
+    if (eventsToExport.length === 0) {
+      toast.error('Нет предстоящих событий для экспорта');
+      return;
+    }
+
+    const icsString = generateICS(eventsToExport);
+    const blob = new Blob([icsString], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${selectedPet.name}_calendar.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Файл календаря скачан!');
+  }
+
+  async function startFreeTrial() {
     if (!session) return
     const toastId = toast.loading('Активация Premium...')
-    
-    // Мы больше не обновляем таблицу напрямую. Мы вызываем нашу безопасную функцию в базе.
     const { error } = await supabase.rpc('start_free_trial')
-    
     if (error) {
       toast.error(error.message, { id: toastId })
     } else {
@@ -211,24 +241,11 @@ export default function Home() {
 
   async function handleMockPayment() {
     if (!session) return
-
-    // ЗАЩИТА: Кнопка оплаты работает только для твоего email
-    if (session.user.email !== 'anapa4867754@yandex.ru') {
-      toast.error('Оплата временно недоступна. Мы работаем над подключением кассы!');
-      return;
-    }
-
     const toastId = toast.loading('Обработка тестового платежа...');
-    
     await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const { error } = await supabase
-      .from('user_status')
-      .update({ is_premium: true })
-      .eq('user_id', session.user.id);
-
+    const { error } = await supabase.rpc('activate_mock_premium');
     if (error) {
-      toast.error('Ошибка оплаты: ' + error.message, { id: toastId });
+      toast.error(error.message, { id: toastId });
     } else {
       toast.success('Тестовая оплата прошла! Premium активирован! 🎉', { id: toastId });
       setIsPremium(true); 
@@ -246,11 +263,9 @@ export default function Home() {
     setShowCalendarModal(false)
     setDashboardTab('list')
     setMobileTab('record')
-    
     setTimeout(() => {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
     }, 100)
-    
     toast.success(`Дата подставлена: ${date}`)
   }
 
@@ -350,7 +365,9 @@ export default function Home() {
             <PetTimeline 
               selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
               records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal}
-              exportToCSV={exportToCSV} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord}
+              exportToCSV={exportToCSV} 
+              exportToICS={exportToICS} // <-- Передаем новую функцию
+              isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord}
               uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents}
               totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus}
             />
