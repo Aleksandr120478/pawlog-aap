@@ -1,202 +1,174 @@
-'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { HealthRecord, PetDocument } from '../components/types'
+import { HealthRecord, Pet, PetDocument } from '../components/types'
 
-function todayLocal() {
-  const d = new Date()
-  const offset = d.getTimezoneOffset()
-  return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
-}
-
-export function useRecords(selectedPetId: string | null, selectedPet: any, hasPremiumAccess: boolean, onOpenPremium: () => void) {
+export function useRecords(
+  selectedPetId: string | null,
+  selectedPet: Pet | null,
+  hasPremiumAccess: boolean,
+  onShowPremium: () => void
+) {
   const [records, setRecords] = useState<HealthRecord[]>([])
   const [documents, setDocuments] = useState<PetDocument[]>([])
   const [savingRecord, setSavingRecord] = useState(false)
-
+  
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [recordType, setRecordType] = useState('weight')
   const [recordValue, setRecordValue] = useState('')
-  const [recordDate, setRecordDate] = useState(todayLocal())
+  const [recordDate, setRecordDate] = useState(new Date().toISOString().split('T')[0])
   const [recordNote, setRecordNote] = useState('')
   const [recordNextDate, setRecordNextDate] = useState('')
 
-  const fetchRecords = useCallback(async (petId: string) => {
-    // ДОБАВЛЕНО .limit(50) - загружаем только последние 50 записей для производительности
-    const { data, error } = await supabase
-      .from('health_records')
-      .select('*')
-      .eq('pet_id', petId)
-      .order('record_date', { ascending: false })
-      .limit(50)
-      
-    if (error) toast.error(error.message)
-    else setRecords(data || [])
-  }, [])
-
-  const fetchDocuments = useCallback(async (petId: string) => {
-    const { data, error } = await supabase.from('pet_documents').select('*').eq('pet_id', petId).order('created_at', { ascending: false })
-    if (error) toast.error(error.message)
-    else setDocuments(data || [])
-  }, [])
-
-  useEffect(() => {
-    if (selectedPetId) {
-      fetchRecords(selectedPetId)
-      fetchDocuments(selectedPetId)
-    } else {
+  const fetchRecords = useCallback(async () => {
+    if (!selectedPetId) {
       setRecords([])
       setDocuments([])
-    }
-  }, [selectedPetId, fetchRecords, fetchDocuments])
-
-  async function uploadDocument(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !selectedPetId) return
-    const toastId = toast.loading('Загрузка документа...')
-    try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
-      if (uploadError) throw uploadError
-      const { data } = await supabase.storage.from('documents').getPublicUrl(fileName)
-      const { error: dbError } = await supabase.from('pet_documents').insert({ pet_id: selectedPetId, name: file.name, url: data.publicUrl })
-      if (dbError) throw dbError
-      toast.success('Документ загружен!', { id: toastId })
-      fetchDocuments(selectedPetId)
-    } catch (error: any) {
-      toast.error('Ошибка: ' + error.message, { id: toastId })
-    }
-    e.target.value = ''
-  }
-
-  async function deleteDocument(docId: string, url: string) {
-    if (!confirm('Удалить этот документ?')) return
-    const toastId = toast.loading('Удаление документа...');
-    try {
-      const fileName = url.split('/').pop()
-      if (fileName) await supabase.storage.from('documents').remove([fileName])
-      const { error } = await supabase.from('pet_documents').delete().eq('id', docId)
-      if (error) throw error;
-      setDocuments(prev => prev.filter(d => d.id !== docId))
-      toast.success('Документ удален', { id: toastId });
-    } catch (error: any) {
-      toast.error('Ошибка удаления: ' + error.message, { id: toastId });
-    }
-  }
-
-  async function addVaccineTemplates() {
-    if (!selectedPet) return
-    let templates = []
-    if (selectedPet.species === 'Собака') templates = ['Бешенство', 'Чума плотоядных', 'Парвовирусный энтерит', 'Лептоспироз']
-    else if (selectedPet.species === 'Кошка') templates = ['Бешенство', 'Кальцивироз', 'Ринотрахеит', 'Панлейкопения']
-    else return toast.error('Шаблоны доступны только для собак и кошек')
-
-    if (!hasPremiumAccess && records.length + templates.length > 20) {
-      onOpenPremium()
       return
     }
-
-    const toastId = toast.loading('Добавляем прививки...')
-    const nextDate = new Date()
-    nextDate.setFullYear(nextDate.getFullYear() + 1)
-    const nextDateString = nextDate.toISOString().split('T')[0]
-
-    const recordsToInsert = templates.map(vaccineName => ({
-      pet_id: selectedPet.id, type: 'vaccine', value: vaccineName,
-      record_date: todayLocal(), next_date: nextDateString, note: 'Добавлено автоматически', reminder_sent: false
-    }))
-
-    const { error } = await supabase.from('health_records').insert(recordsToInsert)
     
-    if (error) {
-      if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
-        toast.dismiss(toastId)
-        onOpenPremium()
-      } else {
-        toast.error(error.message, { id: toastId })
-      }
-    } else { 
-      toast.success('График прививок добавлен!', { id: toastId }); 
-      fetchRecords(selectedPet.id) 
-    }
+    // Ограничение 50 записями для защиты от зависаний
+    const { data: recs } = await supabase.from('health_records').select('*').eq('pet_id', selectedPetId).order('record_date', { ascending: false }).limit(50)
+    const { data: docs } = await supabase.from('pet_documents').select('*').eq('pet_id', selectedPetId).order('created_at', { ascending: false })
+    
+    if (recs) setRecords(recs)
+    if (docs) setDocuments(docs)
+  }, [selectedPetId])
+
+  useEffect(() => {
+    fetchRecords()
+  }, [fetchRecords])
+
+  const startEditingRecord = (record: HealthRecord) => {
+    setEditingRecordId(record.id)
+    setRecordType(record.type || 'weight')
+    setRecordValue(record.value || '') // <-- ИСПРАВЛЕНО (добавлено || '')
+    setRecordDate(record.record_date)
+    setRecordNote(record.note || '')
+    setRecordNextDate(record.next_date || '')
   }
 
-  function startEditingRecord(record: HealthRecord) {
-    setEditingRecordId(record.id); setRecordType(record.type); setRecordValue(record.value)
-    setRecordDate(record.record_date); setRecordNote(record.note || ''); setRecordNextDate(record.next_date || '')
+  const resetRecordForm = () => {
+    setEditingRecordId(null)
+    setRecordType('weight')
+    setRecordValue('')
+    setRecordDate(new Date().toISOString().split('T')[0])
+    setRecordNote('')
+    setRecordNextDate('')
   }
 
-  function resetRecordForm() {
-    setEditingRecordId(null); setRecordType('weight'); setRecordValue('')
-    setRecordDate(todayLocal()); setRecordNote(''); setRecordNextDate('')
-  }
-
-  async function saveRecord(e: React.FormEvent) {
+  const saveRecord = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedPetId) return toast.error('Выберите питомца')
-    const trimmed = recordValue.trim()
-    if (!trimmed) return toast.error('Введите значение')
-    if ((recordType === 'weight' || recordType === 'expense') && !/^\d+(\.\d+)?$/.test(trimmed)) {
-      return toast.error('Введите число, например 5.2 или 1500')
-    }
-    
-    if (!hasPremiumAccess && !editingRecordId && records.length >= 20) {
-      onOpenPremium()
-      return
-    }
+    if (!selectedPetId) return
+    if (!hasPremiumAccess && records.length >= 20 && !editingRecordId) return onShowPremium()
 
     setSavingRecord(true)
-    const recordData = { type: recordType, value: trimmed, note: recordNote.trim() || null, record_date: recordDate, next_date: recordNextDate || null, reminder_sent: false }
+    
+    const payload = {
+      pet_id: selectedPetId,
+      type: recordType,
+      value: recordValue || null,
+      record_date: recordDate,
+      note: recordNote || null,
+      next_date: recordNextDate || null
+    }
 
     if (editingRecordId) {
-      const { error } = await supabase.from('health_records').update(recordData).eq('id', editingRecordId)
+      const { error } = await supabase.from('health_records').update(payload).eq('id', editingRecordId)
       if (error) toast.error(error.message)
-      else { toast.success('Запись обновлена!'); fetchRecords(selectedPetId); resetRecordForm() }
+      else {
+        toast.success('Запись обновлена')
+        fetchRecords()
+        resetRecordForm()
+      }
     } else {
-      const { error } = await supabase.from('health_records').insert({ ...recordData, pet_id: selectedPetId })
-      
-      if (error) {
-        if (error.message.includes('LimitReached') || error.message.toLowerCase().includes('limit')) {
-           onOpenPremium()
-        } else {
-           toast.error(error.message)
-        }
-      } else { 
-        toast.success('Запись добавлена!'); fetchRecords(selectedPetId); resetRecordForm() 
+      const { error } = await supabase.from('health_records').insert(payload)
+      if (error) toast.error(error.message)
+      else {
+        toast.success('Запись добавлена')
+        fetchRecords()
+        resetRecordForm()
       }
     }
     setSavingRecord(false)
   }
 
-  async function deleteRecord(id: string) {
-    if (!confirm('Удалить эту запись из истории?')) return
-    const toastId = toast.loading('Удаление записи...');
+  const deleteRecord = async (id: string) => {
+    if (!confirm('Удалить запись?')) return
     const { error } = await supabase.from('health_records').delete().eq('id', id)
-    if (error) return toast.error(error.message, { id: toastId })
-    setRecords(prev => prev.filter(r => r.id !== id))
-    if (editingRecordId === id) resetRecordForm()
-    toast.success('Запись удалена', { id: toastId })
+    if (error) toast.error(error.message)
+    else {
+      toast.success('Запись удалена')
+      fetchRecords()
+    }
   }
 
-  const totalExpenses = records.filter(r => r.type === 'expense').reduce((sum, r) => sum + (parseFloat(r.value) || 0), 0)
-  
-  const upcomingEvents = records.filter(r => {
-    if (!r.next_date) return false;
-    const today = new Date(todayLocal()).getTime();
-    const next = new Date(r.next_date).getTime();
-    const diffDays = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 7;
-  })
+  const addVaccineTemplates = () => {
+    // Заглушка для быстрых прививок (если нужно, можно расширить)
+    setRecordType('vaccine')
+    setRecordValue('Комплексная прививка')
+    toast.success('Выбран шаблон прививки')
+  }
 
-  const weightData = records.filter(r => r.type === 'weight').map(r => ({ date: r.record_date, weight: parseFloat(r.value) })).reverse();
+  const uploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedPetId) return
+    if (file.size > 5 * 1024 * 1024) return toast.error('Файл больше 5MB')
+    
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${selectedPetId}-${Math.random()}.${fileExt}`
+    
+    const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file)
+    if (uploadError) return toast.error(uploadError.message)
+    
+    const { data: publicUrlData } = supabase.storage.from('documents').getPublicUrl(fileName)
+    
+    const { error } = await supabase.from('pet_documents').insert({
+      pet_id: selectedPetId,
+      name: file.name,
+      url: publicUrlData.publicUrl
+    })
+    
+    if (error) toast.error(error.message)
+    else {
+      toast.success('Документ загружен')
+      fetchRecords()
+    }
+  }
+
+  const deleteDocument = async (id: string, path: string) => {
+    if (!confirm('Удалить документ?')) return
+    const { error } = await supabase.from('pet_documents').delete().eq('id', id)
+    if (error) toast.error(error.message)
+    else {
+      toast.success('Документ удален')
+      fetchRecords()
+    }
+  }
+
+  // Расчет статистики
+  const totalExpenses = useMemo(() => {
+    return records.filter(r => r.type === 'expense' && r.value).reduce((acc, r) => acc + Number(r.value), 0)
+  }, [records])
+
+  const upcomingEvents = useMemo(() => {
+    return records
+      .filter(r => r.next_date)
+      .sort((a, b) => new Date(a.next_date!).getTime() - new Date(b.next_date!).getTime())
+  }, [records])
+
+  const weightData = useMemo(() => {
+    return records
+      .filter(r => r.type === 'weight' && r.value)
+      .sort((a, b) => new Date(a.record_date).getTime() - new Date(b.record_date).getTime())
+      .map(r => ({ date: r.record_date, weight: Number(r.value) }))
+  }, [records])
 
   return {
     records, documents, savingRecord, editingRecordId, setEditingRecordId,
     recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
-    deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument, fetchRecords,
+    deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument,
     totalExpenses, upcomingEvents, weightData
   }
 }
