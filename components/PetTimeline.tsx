@@ -20,6 +20,7 @@ interface PetTimelineProps {
   deleteDocument: (id: string, path: string) => void;
   upcomingEvents: HealthRecord[];
   totalExpenses: number;
+  weightData: any[]; // Возвращен для совместимости с page.tsx
   getReminderStatus: (date: string | null) => { text: string; color: string } | null;
 }
 
@@ -27,7 +28,7 @@ export default function PetTimeline({
   selectedPet, dashboardTab, setDashboardTab, records, documents,
   showCalendarModal, setShowCalendarModal, exportToCSV, exportToICS, isDark,
   startEditingRecord, deleteRecord, uploadDocument, deleteDocument,
-  upcomingEvents, totalExpenses, getReminderStatus
+  upcomingEvents, totalExpenses, weightData, getReminderStatus
 }: PetTimelineProps) {
   if (!selectedPet) {
     return (
