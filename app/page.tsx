@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import LandingPage from '../components/LandingPage'
 import CalendarModal from '../components/CalendarModal'
 import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals'
-import { RECORD_LABELS } from '../components/types' 
+import { RECORD_LABELS } from '../components/types'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import PetsSidebar from '../components/PetsSidebar'
@@ -85,7 +85,6 @@ export default function Home() {
   const fetchUserStatus = useCallback(async (userId: string) => {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
     if (error && error.code === 'PGRST116') {
-      // ИСПРАВЛЕНО ЗДЕСЬ: добавлено error: перед insertError
       const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
       if (!insertError) data = newData
     }
@@ -290,16 +289,16 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 print:bg-white print:text-black">
       <div className="flex-1">
         {showCalendarModal && (
           <CalendarModal records={records} selectedDate={calendarSelectedDate} onDayClick={setCalendarSelectedDate} onAddClick={handleAddFromCalendar} onClose={() => setShowCalendarModal(false)} />
         )}
 
         {trialDaysLeft !== null && trialDaysLeft > 0 && (
-          <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-center py-2 text-sm font-medium print:hidden flex justify-center items-center gap-2 shadow-sm">
+          <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-center py-2 text-sm font-medium print:hidden flex justify-center items-center gap-2 shadow-sm animate-in slide-in-from-top duration-500">
             <span>✨ У вас активен Premium (Пробный период)! Осталось дней: {trialDaysLeft}</span>
-            <button onClick={() => setShowPremiumModal(true)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-xs transition">Продлить</button>
+            <button onClick={() => setShowPremiumModal(true)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-xs transition active:scale-95">Продлить</button>
           </div>
         )}
 
@@ -311,24 +310,25 @@ export default function Home() {
 
         <Header isDark={isDark} toggleTheme={toggleTheme} session={session} hasPremiumAccess={hasPremiumAccess} onOpenPremium={() => setShowPremiumModal(true)} onOpenSettings={() => setShowSettingsModal(true)} onLogout={handleLogout} />
 
-        <main className="max-w-6xl mx-auto p-4 md:p-6 pb-20 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
-          <div className={`${mobileTab === 'pets' ? 'block' : 'hidden'} md:block h-full`}>
+        <main className="max-w-6xl mx-auto p-4 md:p-6 pb-24 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
+          <div className={`${mobileTab === 'pets' ? 'block animate-in fade-in slide-in-from-left-4 duration-300' : 'hidden'} md:block h-full`}>
             <PetsSidebar pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} editingPetId={editingPetId} petName={petName} setPetName={setPetName} petSpecies={petSpecies} setPetSpecies={setPetSpecies} petBreed={petBreed} setPetBreed={setPetBreed} petBirthDate={petBirthDate} setPetBirthDate={setPetBirthDate} petFile={petFile} setPetFile={setPetFile} petAllergies={petAllergies} setPetAllergies={setPetAllergies} petChronic={petChronic} setPetChronic={setPetChronic} petFood={petFood} setPetFood={setPetFood} petVet={petVet} setPetVet={setPetVet} savingPet={savingPet} savePet={savePet} deletePet={deletePet} startEditingPet={startEditingPet} resetPetForm={resetPetForm} openShareModal={openShareModal} />
           </div>
 
-          <div className={`${mobileTab === 'record' ? 'block' : 'hidden'} md:block h-full`}>
+          <div className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
             <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
           </div>
 
-          <div className={`${mobileTab === 'timeline' ? 'block' : 'hidden'} md:block h-full`}>
+          <div className={`${mobileTab === 'timeline' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
             <PetTimeline selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord} uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus} />
           </div>
         </main>
 
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-around p-2 z-50 print:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-          <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400'}`}><span className="text-xl">🐾</span><span className="text-[10px] font-medium mt-1">Питомцы</span></button>
-          <button onClick={() => setMobileTab('record')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'record' ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400'}`}><span className="text-xl">➕</span><span className="text-[10px] font-medium mt-1">Запись</span></button>
-          <button onClick={() => setMobileTab('timeline')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'timeline' ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400'}`}><span className="text-xl">📋</span><span className="text-[10px] font-medium mt-1">Лента</span></button>
+        {/* Стеклянная мобильная навигация */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 pb-safe z-50 print:hidden shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+          <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50/80 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">🐾</span><span className="text-[10px] font-medium mt-1">Питомцы</span></button>
+          <button onClick={() => setMobileTab('record')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'record' ? 'text-green-600 bg-green-50/80 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">➕</span><span className="text-[10px] font-medium mt-1">Запись</span></button>
+          <button onClick={() => setMobileTab('timeline')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'timeline' ? 'text-blue-500 bg-blue-50/80 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">📋</span><span className="text-[10px] font-medium mt-1">Лента</span></button>
         </div>
       </div>
       <Footer />
