@@ -11,27 +11,15 @@ export default function InstallPWA() {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    // Если приложение уже установлено и открыто как PWA, не показываем
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      return
-    }
-
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      if (!localStorage.getItem('pwa-dismissed')) {
-        setIsVisible(true)
-      }
     }
-
     window.addEventListener('beforeinstallprompt', handler)
 
-    // Если через 2 секунды нативный промпт не пришел, но мы на телефоне — показываем сами
+    // ТЕСТ: Принудительно показываем кнопку через 2 секунды всем
     const timer = setTimeout(() => {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      if (isMobile && !localStorage.getItem('pwa-dismissed')) {
-        setIsVisible(true)
-      }
+      setIsVisible(true)
     }, 2000)
 
     return () => {
@@ -42,22 +30,17 @@ export default function InstallPWA() {
 
   const handleInstall = async () => {
     if (deferredPrompt) {
-      // Нативный установщик
       deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
-      if (outcome === 'accepted') {
-        setIsVisible(false)
-      }
+      if (outcome === 'accepted') setIsVisible(false)
       setDeferredPrompt(null)
     } else {
-      // Инструкция для iPhone или если браузер заблокировал установку
       alert('Чтобы установить приложение:\n\n1. Нажмите на три точки (или кнопку Поделиться) в браузере.\n2. Выберите "Установить приложение" или "Добавить на главный экран".')
     }
   }
 
   const handleDismiss = () => {
     setIsVisible(false)
-    localStorage.setItem('pwa-dismissed', 'true')
   }
 
   if (!isVisible) return null
