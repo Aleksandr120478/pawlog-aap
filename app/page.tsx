@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import LandingPage from '../components/LandingPage'
 import CalendarModal from '../components/CalendarModal'
 import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals'
-import { RECORD_LABELS, PetShare } from '../components/types' // <-- Импортируем PetShare
+import { RECORD_LABELS, PetShare } from '../components/types'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import PetsSidebar from '../components/PetsSidebar'
@@ -36,7 +36,7 @@ export default function Home() {
   const [showCalendarModal, setShowCalendarModal] = useState(false)
   
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(todayLocal())
-  const [petShares, setPetShares] = useState<PetShare[]>([]) // <-- Убрали any[]
+  const [petShares, setPetShares] = useState<PetShare[]>([])
   const [shareEmail, setShareEmail] = useState('')
   const [sharingPetId, setSharingPetId] = useState<string | null>(null)
   
@@ -74,20 +74,29 @@ export default function Home() {
     }
   }, [])
 
-  const toggleTheme = () => {
-    if (isDark) {
-      document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); setIsDark(false)
+  const toggleTheme = async () => {
+    const newTheme = isDark ? 'light' : 'dark'
+    
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark'); setIsDark(true)
     } else {
-      document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); setIsDark(true)
+      document.documentElement.classList.remove('dark'); setIsDark(false)
+    }
+    localStorage.setItem('theme', newTheme)
+
+    if (session) {
+      await supabase.from('user_status').update({ theme: newTheme }).eq('user_id', session.user.id)
     }
   }
 
   const fetchUserStatus = useCallback(async (userId: string) => {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
+    
     if (error && error.code === 'PGRST116') {
       const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
       if (!insertError) data = newData
     }
+    
     if (data) {
       setIsPremium(data.is_premium || false)
       if (data.trial_ends_at) {
@@ -96,6 +105,13 @@ export default function Home() {
         const now = new Date().getTime()
         const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
         setTrialDaysLeft(days > 0 ? days : 0)
+      }
+      if (data.theme) {
+        if (data.theme === 'dark') {
+          document.documentElement.classList.add('dark'); setIsDark(true); localStorage.setItem('theme', 'dark')
+        } else {
+          document.documentElement.classList.remove('dark'); setIsDark(false); localStorage.setItem('theme', 'light')
+        }
       }
     }
   }, [])
@@ -266,6 +282,21 @@ export default function Home() {
     toast.success(`Дата подставлена: ${date}`, { id: 'date-success' })
   }
 
+  async function handleDeleteAccount() {
+    if (!confirm('ВНИМАНИЕ! Вы уверены, что хотите навсегда удалить аккаунт и всех питомцев? Это действие нельзя отменить.')) return;
+
+    const toastId = toast.loading('Удаление аккаунта...', { id: 'delete-acc' });
+    const { error } = await supabase.rpc('delete_my_account');
+
+    if (error) {
+      toast.error('Ошибка удаления: ' + error.message, { id: toastId });
+    } else {
+      toast.success('Аккаунт успешно удален. До свидания!', { id: toastId });
+      await supabase.auth.signOut();
+      window.location.reload(); 
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     setPets([]); setSelectedPetId(null); resetPetForm(); resetRecordForm()
@@ -306,7 +337,7 @@ export default function Home() {
         
         <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} onPay={handleMockPayment} />
         
-        <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
+        <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} onDeleteAccount={handleDeleteAccount} />
 
         <Header isDark={isDark} toggleTheme={toggleTheme} session={session} hasPremiumAccess={hasPremiumAccess} onOpenPremium={() => setShowPremiumModal(true)} onOpenSettings={() => setShowSettingsModal(true)} onLogout={handleLogout} />
 

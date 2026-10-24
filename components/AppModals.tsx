@@ -111,9 +111,10 @@ interface SettingsModalProps {
   setNewPassword: (v: string) => void;
   updatePassword: (e: React.FormEvent) => void;
   updatingPassword: boolean;
+  onDeleteAccount: () => void; 
 }
 
-export function SettingsModal({ isOpen, onClose, session, isPremium, trialDaysLeft, newPassword, setNewPassword, updatePassword, updatingPassword }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, session, isPremium, trialDaysLeft, newPassword, setNewPassword, updatePassword, updatingPassword, onDeleteAccount }: SettingsModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
@@ -128,11 +129,18 @@ export function SettingsModal({ isOpen, onClose, session, isPremium, trialDaysLe
           <p className="text-sm text-rose-800 dark:text-rose-300 font-medium mb-1">Ваш тариф:</p>
           <p className="text-lg font-bold text-rose-900 dark:text-rose-200">{isPremium ? 'Premium (Навсегда)' : (trialDaysLeft && trialDaysLeft > 0 ? `Пробный период (${trialDaysLeft} дн.)` : 'Бесплатный')}</p>
         </div>
-        <form onSubmit={updatePassword} className="space-y-4">
+        <form onSubmit={updatePassword} className="space-y-4 mb-8">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Сменить пароль</p>
           <input type="password" placeholder="Новый пароль (мин. 6 символов)" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" required minLength={6} />
           <button type="submit" disabled={updatingPassword} className="w-full bg-rose-500 text-white py-3 rounded-xl font-medium hover:bg-rose-600 transition disabled:opacity-60">{updatingPassword ? 'Сохранение...' : 'Обновить пароль'}</button>
         </form>
+
+        <div className="pt-4 border-t border-red-200 dark:border-red-900/50">
+          <p className="text-xs text-red-500 mb-2 font-medium">Опасная зона</p>
+          <button onClick={onDeleteAccount} className="w-full bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 py-3 rounded-xl font-medium transition">
+            Удалить аккаунт навсегда
+          </button>
+        </div>
       </div>
     </div>
   )
