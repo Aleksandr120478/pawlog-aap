@@ -11,16 +11,20 @@ export default function InstallPWA() {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) return
+
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
     }
+    
     window.addEventListener('beforeinstallprompt', handler)
 
-    // ТЕСТ: Принудительно показываем кнопку через 2 секунды всем
     const timer = setTimeout(() => {
-      setIsVisible(true)
-    }, 2000)
+      if (!localStorage.getItem('pwa-dismissed')) {
+        setIsVisible(true)
+      }
+    }, 2500)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
@@ -35,31 +39,43 @@ export default function InstallPWA() {
       if (outcome === 'accepted') setIsVisible(false)
       setDeferredPrompt(null)
     } else {
-      alert('Чтобы установить приложение:\n\n1. Нажмите на три точки (или кнопку Поделиться) в браузере.\n2. Выберите "Установить приложение" или "Добавить на главный экран".')
+      alert('Чтобы установить приложение:\n\n1. Нажмите на три точки (или кнопку Поделиться).\n2. Выберите "Установить приложение" или "Добавить на главный экран".')
     }
   }
 
   const handleDismiss = () => {
     setIsVisible(false)
+    localStorage.setItem('pwa-dismissed', 'true')
   }
 
   if (!isVisible) return null
 
   return (
-    <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-rose-100 dark:border-rose-900/50 p-4 animate-in slide-in-from-bottom duration-500 fade-in print:hidden">
-      <div className="flex items-center justify-between gap-4">
+    <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[340px] animate-in slide-in-from-bottom-8 duration-500 ease-out fade-in print:hidden">
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-3 flex items-center justify-between gap-3">
+        
         <div className="flex items-center gap-3">
-          <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-xl text-2xl animate-bounce">
-            📱
+          {/* Стильная иконка скачивания */}
+          <div className="bg-rose-50 dark:bg-rose-900/30 p-2.5 rounded-xl text-rose-500 flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
           </div>
           <div>
-            <p className="font-bold text-gray-800 dark:text-white text-sm">Установить PawLog</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Быстрый доступ с экрана</p>
+            <p className="font-semibold text-gray-800 dark:text-white text-sm leading-tight">Установить PawLog</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Быстрый доступ с экрана</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleDismiss} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 text-xl leading-none">&times;</button>
-          <button onClick={handleInstall} className="bg-rose-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-rose-600 active:scale-95 transition">Установить</button>
+
+        <div className="flex items-center gap-1">
+          <button onClick={handleDismiss} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 text-lg leading-none transition-colors">
+            &times;
+          </button>
+          <button onClick={handleInstall} className="bg-rose-500 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-rose-600 active:scale-95 transition-all shadow-sm">
+            Добавить
+          </button>
         </div>
       </div>
     </div>
