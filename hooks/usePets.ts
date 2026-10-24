@@ -24,17 +24,22 @@ export function usePets(session: Session | null, hasPremiumAccess: boolean, onSh
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
   const ownedPetsCount = pets.length
 
+  // Вытаскиваем строку ID. Она не меняется, в отличие от объекта сессии.
+  const userId = session?.user?.id;
+
   const fetchPets = useCallback(async () => {
-    if (!session) return
+    if (!userId) return
     const { data, error } = await supabase.from('pets').select('*').order('created_at', { ascending: true })
-    if (error) toast.error(error.message)
-    else {
+    if (error) {
+      toast.error('Ошибка загрузки питомцев: ' + error.message, { id: 'fetch-pets-error' })
+    } else {
       setPets(data || [])
-      if (data && data.length > 0 && !selectedPetId) {
-        setSelectedPetId(data[0].id)
-      }
+      setSelectedPetId(prev => {
+        if (!prev && data && data.length > 0) return data[0].id;
+        return prev;
+      })
     }
-  }, [session, selectedPetId])
+  }, [userId])
 
   const startEditingPet = (pet: Pet) => {
     setEditingPetId(pet.id)
@@ -42,7 +47,7 @@ export function usePets(session: Session | null, hasPremiumAccess: boolean, onSh
     setPetSpecies(pet.species || 'Собака')
     setPetBreed(pet.breed || '')
     setPetBirthDate(pet.birth_date || '')
-    setPetAvatarUrl(pet.avatar_url || null) // <-- ИСПРАВЛЕНО: добавлено || null
+    setPetAvatarUrl(pet.avatar_url || null)
     setPetFile(null)
     setPetAllergies(pet.allergies || '')
     setPetChronic(pet.chronic_diseases || '')
@@ -77,7 +82,7 @@ export function usePets(session: Session | null, hasPremiumAccess: boolean, onSh
       const fileName = `${session.user.id}-${Math.random()}.${fileExt}`
       const { error: uploadError, data } = await supabase.storage.from('avatars').upload(fileName, petFile)
       if (uploadError) {
-        toast.error('Ошибка загрузки фото: ' + uploadError.message)
+        toast.error('Ошибка загрузки фото: ' + uploadError.message, { id: 'upload-error' })
         setSavingPet(false)
         return
       }
@@ -101,17 +106,17 @@ export function usePets(session: Session | null, hasPremiumAccess: boolean, onSh
 
     if (editingPetId) {
       const { error } = await supabase.from('pets').update(petData).eq('id', editingPetId)
-      if (error) toast.error(error.message)
+      if (error) toast.error(error.message, { id: 'save-pet-error' })
       else {
-        toast.success('Питомец обновлен!')
+        toast.success('Питомец обновлен!', { id: 'save-pet-success' })
         fetchPets()
         resetPetForm()
       }
     } else {
       const { error } = await supabase.from('pets').insert({ ...petData, user_id: session.user.id })
-      if (error) toast.error(error.message)
+      if (error) toast.error(error.message, { id: 'save-pet-error' })
       else {
-        toast.success('Питомец добавлен!')
+        toast.success('Питомец добавлен!', { id: 'save-pet-success' })
         fetchPets()
         resetPetForm()
       }
@@ -122,9 +127,9 @@ export function usePets(session: Session | null, hasPremiumAccess: boolean, onSh
   const deletePet = async (id: string) => {
     if (!confirm('Вы уверены, что хотите удалить питомца и все его записи?')) return
     const { error } = await supabase.from('pets').delete().eq('id', id)
-    if (error) toast.error(error.message)
+    if (error) toast.error(error.message, { id: 'delete-pet-error' })
     else {
-      toast.success('Питомец удален')
+      toast.success('Питомец удален', { id: 'delete-pet-success' })
       if (selectedPetId === id) setSelectedPetId(null)
       fetchPets()
     }

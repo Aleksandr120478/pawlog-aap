@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import LandingPage from '../components/LandingPage'
 import CalendarModal from '../components/CalendarModal'
 import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals'
-import { RECORD_LABELS } from '../components/types'
+import { RECORD_LABELS } from '../components/types' 
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import PetsSidebar from '../components/PetsSidebar'
@@ -85,6 +85,7 @@ export default function Home() {
   const fetchUserStatus = useCallback(async (userId: string) => {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
     if (error && error.code === 'PGRST116') {
+      // ИСПРАВЛЕНО ЗДЕСЬ: добавлено error: перед insertError
       const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
       if (!insertError) data = newData
     }
@@ -103,22 +104,20 @@ export default function Home() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (session) {
-        fetchPets()
-        fetchUserStatus(session.user.id)
-        setLoading(false)
-      }
-      else setLoading(false)
+      setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setSession(session)
-      if (session) {
-        fetchPets()
-        fetchUserStatus(session.user.id)
-      }
     })
     return () => subscription.unsubscribe()
-  }, [fetchPets, fetchUserStatus])
+  }, [])
+
+  useEffect(() => {
+    if (session) {
+      fetchPets()
+      fetchUserStatus(session.user.id)
+    }
+  }, [session, fetchPets, fetchUserStatus])
 
   async function fetchPetShares(petId: string) {
     const { data } = await supabase.from('pet_shares').select('*').eq('pet_id', petId)
@@ -128,10 +127,10 @@ export default function Home() {
   async function handleShare(e: React.FormEvent) {
     e.preventDefault()
     const cleanEmail = shareEmail.trim().toLowerCase();
-    if (!cleanEmail || !sharingPetId) return toast.error('Введите email')
-    if (cleanEmail === session?.user.email?.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой')
+    if (!cleanEmail || !sharingPetId) return toast.error('Введите email', { id: 'share-error' })
+    if (cleanEmail === session?.user.email?.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой', { id: 'share-error' })
     
-    const toastId = toast.loading('Отправка приглашения...')
+    const toastId = toast.loading('Отправка приглашения...', { id: 'share-loading' })
     const { data: existing } = await supabase.from('pet_shares').select('id').eq('pet_id', sharingPetId).eq('shared_with_email', cleanEmail).single()
     
     if (existing) return toast.error('Этот пользователь уже имеет доступ', { id: toastId })
@@ -148,9 +147,9 @@ export default function Home() {
   async function removeShare(shareId: string) {
     if (!sharingPetId) return
     const { error } = await supabase.from('pet_shares').delete().eq('id', shareId)
-    if (error) toast.error(error.message)
+    if (error) toast.error(error.message, { id: 'remove-share-error' })
     else {
-      toast.success('Доступ отозван')
+      toast.success('Доступ отозван', { id: 'remove-share-success' })
       fetchPetShares(sharingPetId)
     }
   }
@@ -164,13 +163,13 @@ export default function Home() {
 
   async function updatePassword(e: React.FormEvent) {
     e.preventDefault()
-    if (!newPassword || newPassword.length < 6) return toast.error('Пароль должен быть минимум 6 символов')
+    if (!newPassword || newPassword.length < 6) return toast.error('Пароль должен быть минимум 6 символов', { id: 'pass-error' })
     setUpdatingPassword(true)
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     setUpdatingPassword(false)
-    if (error) toast.error(error.message)
+    if (error) toast.error(error.message, { id: 'pass-error' })
     else {
-      toast.success('Пароль успешно изменен!')
+      toast.success('Пароль успешно изменен!', { id: 'pass-success' })
       setNewPassword('')
       setShowSettingsModal(false)
     }
@@ -192,7 +191,7 @@ export default function Home() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Файл Excel успешно скачан!');
+    toast.success('Файл Excel успешно скачан!', { id: 'csv-success' });
   }
 
   function exportToICS() {
@@ -208,7 +207,7 @@ export default function Home() {
       }));
 
     if (eventsToExport.length === 0) {
-      toast.error('Нет предстоящих событий для экспорта');
+      toast.error('Нет предстоящих событий для экспорта', { id: 'ics-error' });
       return;
     }
 
@@ -222,12 +221,12 @@ export default function Home() {
     link.click();
     document.body.removeChild(link);
     
-    toast.success('Файл календаря скачан!');
+    toast.success('Файл календаря скачан!', { id: 'ics-success' });
   }
 
   async function startFreeTrial() {
     if (!session) return
-    const toastId = toast.loading('Активация Premium...')
+    const toastId = toast.loading('Активация Premium...', { id: 'trial-loading' })
     const { error } = await supabase.rpc('start_free_trial')
     if (error) {
       toast.error(error.message, { id: toastId })
@@ -240,7 +239,7 @@ export default function Home() {
 
   async function handleMockPayment() {
     if (!session) return
-    const toastId = toast.loading('Обработка тестового платежа...');
+    const toastId = toast.loading('Обработка тестового платежа...', { id: 'pay-loading' });
     await new Promise(resolve => setTimeout(resolve, 1500));
     const { error } = await supabase.rpc('activate_mock_premium');
     if (error) {
@@ -265,7 +264,7 @@ export default function Home() {
     setTimeout(() => {
       document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
     }, 100)
-    toast.success(`Дата подставлена: ${date}`)
+    toast.success(`Дата подставлена: ${date}`, { id: 'date-success' })
   }
 
   async function handleLogout() {
@@ -292,14 +291,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 print:bg-white print:text-black">
-      
       <div className="flex-1">
         {showCalendarModal && (
-          <CalendarModal 
-            records={records} selectedDate={calendarSelectedDate}
-            onDayClick={setCalendarSelectedDate} onAddClick={handleAddFromCalendar}
-            onClose={() => setShowCalendarModal(false)}
-          />
+          <CalendarModal records={records} selectedDate={calendarSelectedDate} onDayClick={setCalendarSelectedDate} onAddClick={handleAddFromCalendar} onClose={() => setShowCalendarModal(false)} />
         )}
 
         {trialDaysLeft !== null && trialDaysLeft > 0 && (
@@ -311,86 +305,32 @@ export default function Home() {
 
         <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
         
-        <PremiumModal 
-          isOpen={showPremiumModal} 
-          onClose={() => setShowPremiumModal(false)} 
-          isPremium={isPremium} 
-          trialDaysLeft={trialDaysLeft} 
-          startFreeTrial={startFreeTrial} 
-          billingPeriod={billingPeriod} 
-          setBillingPeriod={setBillingPeriod} 
-          onPay={handleMockPayment} 
-        />
+        <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} onPay={handleMockPayment} />
         
         <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} />
 
-        <Header 
-          isDark={isDark} 
-          toggleTheme={toggleTheme} 
-          session={session} 
-          hasPremiumAccess={hasPremiumAccess} 
-          onOpenPremium={() => setShowPremiumModal(true)} 
-          onOpenSettings={() => setShowSettingsModal(true)} 
-          onLogout={handleLogout} 
-        />
+        <Header isDark={isDark} toggleTheme={toggleTheme} session={session} hasPremiumAccess={hasPremiumAccess} onOpenPremium={() => setShowPremiumModal(true)} onOpenSettings={() => setShowSettingsModal(true)} onLogout={handleLogout} />
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 pb-20 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
-          
           <div className={`${mobileTab === 'pets' ? 'block' : 'hidden'} md:block h-full`}>
-            <PetsSidebar 
-              pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId}
-              session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount}
-              editingPetId={editingPetId} petName={petName} setPetName={setPetName}
-              petSpecies={petSpecies} setPetSpecies={setPetSpecies} petBreed={petBreed} setPetBreed={setPetBreed}
-              petBirthDate={petBirthDate} setPetBirthDate={setPetBirthDate} petFile={petFile} setPetFile={setPetFile}
-              petAllergies={petAllergies} setPetAllergies={setPetAllergies} petChronic={petChronic} setPetChronic={setPetChronic}
-              petFood={petFood} setPetFood={setPetFood} petVet={petVet} setPetVet={setPetVet}
-              savingPet={savingPet} savePet={savePet} deletePet={deletePet}
-              startEditingPet={startEditingPet} resetPetForm={resetPetForm} openShareModal={openShareModal}
-            />
+            <PetsSidebar pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} editingPetId={editingPetId} petName={petName} setPetName={setPetName} petSpecies={petSpecies} setPetSpecies={setPetSpecies} petBreed={petBreed} setPetBreed={setPetBreed} petBirthDate={petBirthDate} setPetBirthDate={setPetBirthDate} petFile={petFile} setPetFile={setPetFile} petAllergies={petAllergies} setPetAllergies={setPetAllergies} petChronic={petChronic} setPetChronic={setPetChronic} petFood={petFood} setPetFood={setPetFood} petVet={petVet} setPetVet={setPetVet} savingPet={savingPet} savePet={savePet} deletePet={deletePet} startEditingPet={startEditingPet} resetPetForm={resetPetForm} openShareModal={openShareModal} />
           </div>
 
           <div className={`${mobileTab === 'record' ? 'block' : 'hidden'} md:block h-full`}>
-            <RecordForm 
-              selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length}
-              editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord}
-              recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue}
-              recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate}
-              recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm}
-            />
+            <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
           </div>
 
           <div className={`${mobileTab === 'timeline' ? 'block' : 'hidden'} md:block h-full`}>
-            <PetTimeline 
-              selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab}
-              records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal}
-              exportToCSV={exportToCSV} 
-              exportToICS={exportToICS}
-              isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord}
-              uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents}
-              totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus}
-            />
+            <PetTimeline selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord} uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus} />
           </div>
-
         </main>
 
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-around p-2 z-50 print:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-          <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400'}`}>
-            <span className="text-xl">🐾</span>
-            <span className="text-[10px] font-medium mt-1">Питомцы</span>
-          </button>
-          <button onClick={() => setMobileTab('record')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'record' ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400'}`}>
-            <span className="text-xl">➕</span>
-            <span className="text-[10px] font-medium mt-1">Запись</span>
-          </button>
-          <button onClick={() => setMobileTab('timeline')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'timeline' ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400'}`}>
-            <span className="text-xl">📋</span>
-            <span className="text-[10px] font-medium mt-1">Лента</span>
-          </button>
+          <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400'}`}><span className="text-xl">🐾</span><span className="text-[10px] font-medium mt-1">Питомцы</span></button>
+          <button onClick={() => setMobileTab('record')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'record' ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400'}`}><span className="text-xl">➕</span><span className="text-[10px] font-medium mt-1">Запись</span></button>
+          <button onClick={() => setMobileTab('timeline')} className={`flex flex-col items-center p-2 rounded-lg transition w-1/3 ${mobileTab === 'timeline' ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400'}`}><span className="text-xl">📋</span><span className="text-[10px] font-medium mt-1">Лента</span></button>
         </div>
-
       </div>
-
       <Footer />
     </div>
   )
