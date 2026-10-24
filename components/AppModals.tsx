@@ -1,5 +1,7 @@
 'use client'
 import toast from 'react-hot-toast'
+import { Session } from '@supabase/supabase-js'
+import { PetShare } from './types'
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -7,7 +9,7 @@ interface ShareModalProps {
   shareEmail: string;
   setShareEmail: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
-  petShares: any[];
+  petShares: PetShare[];
   removeShare: (id: string) => void;
 }
 
@@ -26,7 +28,7 @@ export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmi
             <p className="text-sm text-gray-400 italic">Пока никого нет</p>
           ) : (
             <ul className="space-y-2 max-h-[20vh] overflow-y-auto pr-1">
-              {petShares.map((share: any) => (
+              {petShares.map((share: PetShare) => (
                 <li key={share.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                   <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate pr-2">{share.shared_with_email}</span>
                   <button onClick={() => removeShare(share.id)} className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 transition">Отозвать</button>
@@ -54,7 +56,7 @@ interface PremiumModalProps {
   startFreeTrial: () => void;
   billingPeriod: 'monthly' | 'annual';
   setBillingPeriod: (v: 'monthly' | 'annual') => void;
-  onPay: () => void; // <-- ДОБАВИЛИ ПРОПС ДЛЯ ОПЛАТЫ
+  onPay: () => void; 
 }
 
 export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startFreeTrial, billingPeriod, setBillingPeriod, onPay }: PremiumModalProps) {
@@ -92,7 +94,6 @@ export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startF
           <div className="text-center mb-6">
             {billingPeriod === 'monthly' ? (<><span className="text-4xl font-bold text-gray-900 dark:text-white">149 ₽</span><span className="text-gray-500 dark:text-gray-400"> / мес</span></>) : (<><span className="text-4xl font-bold text-gray-900 dark:text-white">1190 ₽</span><span className="text-gray-500 dark:text-gray-400"> / год</span><p className="text-xs text-green-500 mt-1 font-medium">Экономия 598 ₽ в год</p></>)}
           </div>
-          {/* ЗАМЕНИЛИ ЗАГЛУШКУ НА onPay */}
           <button onClick={onPay} className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition shadow-lg shadow-rose-500/30">Оплатить</button>
         </div>
       </div>
@@ -103,7 +104,7 @@ export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startF
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  session: any;
+  session: Session | null;
   isPremium: boolean;
   trialDaysLeft: number | null;
   newPassword: string;

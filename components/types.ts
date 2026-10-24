@@ -32,6 +32,13 @@ export interface PetDocument {
   created_at?: string;
 }
 
+export interface PetShare {
+  id: string;
+  pet_id: string;
+  shared_with_email: string;
+  created_at?: string;
+}
+
 export const RECORD_LABELS: Record<string, string> = {
   weight: 'Вес',
   vaccine: 'Прививка',
@@ -41,7 +48,6 @@ export const RECORD_LABELS: Record<string, string> = {
   note: 'Заметка',
 };
 
-// ВОЗВРАЩАЕМ ИКОНКИ (из-за них была ошибка)
 export const SPECIES_ICONS: Record<string, string> = {
   'Собака': '🐶',
   'Кошка': '🐱',
