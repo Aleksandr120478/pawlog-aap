@@ -1,19 +1,19 @@
 'use client'
 import React from 'react'
-import { RECORD_LABELS, Pet, HealthRecord } from './types' // <-- Импортируем типы
+import { RECORD_LABELS, Pet, HealthRecord } from './types'
 
 interface PetTimelineProps {
-  selectedPet: Pet | null; // <-- Строгий тип
+  selectedPet: Pet | null;
   dashboardTab: 'list' | 'docs';
   setDashboardTab: (v: 'list' | 'docs') => void;
-  records: HealthRecord[]; // <-- Строгий тип
-  documents: any[]; // Пока оставим any для документов, если для них нет типа
+  records: HealthRecord[];
+  documents: any[]; 
   showCalendarModal: boolean;
   setShowCalendarModal: (v: boolean) => void;
   exportToCSV: () => void;
   exportToICS: () => void;
   isDark: boolean;
-  startEditingRecord: (record: HealthRecord) => void; // <-- Строгий тип
+  startEditingRecord: (record: HealthRecord) => void;
   deleteRecord: (id: string) => void;
   uploadDocument: (e: React.ChangeEvent<HTMLInputElement>) => void;
   deleteDocument: (id: string, path: string) => void;
@@ -38,9 +38,9 @@ export default function PetTimeline({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
+    <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col md:max-h-[calc(100vh-120px)]">
       
-      <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">
+      <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2 shrink-0">
         <h2 className="text-lg font-bold text-gray-800 dark:text-white">Дневник: {selectedPet.name}</h2>
         <div className="flex gap-2">
           <button 
@@ -58,17 +58,16 @@ export default function PetTimeline({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4 print:hidden">
+      <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
         <button onClick={exportToCSV} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
           📊 Экспорт в Excel
         </button>
         <button onClick={exportToICS} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
           📅 Экспорт в Календарь (.ics)
-          
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pr-2">
         {dashboardTab === 'list' ? (
           records.length === 0 ? (
              <p className="text-center text-gray-400 mt-4">Записей пока нет</p>
