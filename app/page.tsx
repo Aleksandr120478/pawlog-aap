@@ -18,19 +18,38 @@ import SkeletonLoader from '@/components/SkeletonLoader'
 import { EmergencyQR } from '@/components/emergency-qr'
 import MobileNav from '@/components/MobileNav'
 import TrialBanner from '@/components/TrialBanner'
-import { usePets } from '@/hooks/usePets'
-import { useRecords } from '@/hooks/useRecords'
 import { buildCsv, generateIcsContent, triggerDownload } from '@/lib/export'
 import { todayLocal, getReminderStatus as getReminderStatusRaw } from '@/lib/date'
+import { useAppStore } from '@/store/useAppStore'
 
 export default function Home() {
-  const [session, setSession] = useState<Session | null>(null)
+  // --- ГЛОБАЛЬНОЕ СОСТОЯНИЕ ИЗ ZUSTAND ---
+  const session = useAppStore(state => state.session)
+  const setSession = useAppStore(state => state.setSession)
+  
+  const hasPremiumAccess = useAppStore(state => state.hasPremiumAccess)
+  const setHasPremiumAccess = useAppStore(state => state.setHasPremiumAccess)
+
+  const pets = useAppStore(state => state.pets)
+  const selectedPetId = useAppStore(state => state.selectedPetId)
+  const setSelectedPetId = useAppStore(state => state.setSelectedPetId)
+  const selectedPet = pets.find(p => p.id === selectedPetId) || null
+  const ownedPetsCount = pets.length
+  const savingPet = useAppStore(state => state.savingPet)
+  const fetchPets = useAppStore(state => state.fetchPets)
+
+  const records = useAppStore(state => state.records)
+  const documents = useAppStore(state => state.documents)
+  
+  // Достаем все остальные методы и состояния из стора (для прокидывания в компоненты)
+  const store = useAppStore()
+
+  // --- ЛОКАЛЬНОЕ СОСТОЯНИЕ (UI) ---
   const [loading, setLoading] = useState(true)
   const [isDark, setIsDark] = useState(false)
   const [mobileTab, setMobileTab] = useState<'pets' | 'record' | 'timeline'>('pets')
 
   const [dashboardTab, setDashboardTab] = useState<'list' | 'docs'>('list')
-  const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showCalendarModal, setShowCalendarModal] = useState(false)
@@ -51,24 +70,13 @@ export default function Home() {
   const [shouldScrollToForm, setShouldScrollToForm] = useState(false)
   const recordFormRef = useRef<HTMLDivElement>(null)
 
-  const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
+  const showPremiumModal = useAppStore(state => state.showPremiumModal)
+  const setShowPremiumModal = useAppStore(state => state.setShowPremiumModal)
 
-  const {
-    pets, setPets, selectedPetId, setSelectedPetId, selectedPet, savingPet, ownedPetsCount,
-    fetchPets, editingPetId, petName, setPetName, petSpecies, setPetSpecies, petBreed, setPetBreed,
-    petBirthDate, setPetBirthDate, petFile, setPetFile, petAllergies, setPetAllergies,
-    petChronic, setPetChronic, petFood, setPetFood, petVet, setPetVet,
-    startEditingPet, resetPetForm, savePet, deletePet
-  } = usePets(session, hasPremiumAccess, () => setShowPremiumModal(true))
-
-  const {
-    records, documents, savingRecord, editingRecordId, setEditingRecordId,
-    recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
-    recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
-    deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument,
-    totalExpenses, upcomingEvents, weightData,
-    hasMoreRecords, loadingMoreRecords, loadMoreRecords
-  } = useRecords(selectedPetId, selectedPet, hasPremiumAccess, () => setShowPremiumModal(true))
+  // Синхронизация статуса Premium
+  useEffect(() => {
+    setHasPremiumAccess(isPremium || (trialDaysLeft !== null && trialDaysLeft > 0))
+  }, [isPremium, trialDaysLeft, setHasPremiumAccess])
 
   useEffect(() => {
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -89,14 +97,12 @@ export default function Home() {
 
   const toggleTheme = async () => {
     const newTheme = isDark ? 'light' : 'dark'
-
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark'); setIsDark(true)
     } else {
       document.documentElement.classList.remove('dark'); setIsDark(false)
     }
     localStorage.setItem('theme', newTheme)
-
     if (session) {
       await supabase.from('user_status').update({ theme: newTheme }).eq('user_id', session.user.id)
     }
@@ -148,7 +154,7 @@ export default function Home() {
       setSession(session)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [setSession])
 
   useEffect(() => {
     if (session) {
@@ -265,12 +271,12 @@ export default function Home() {
   }
 
   function handleAddFromCalendar(date: string) {
-    setEditingRecordId(null)
-    setRecordType('weight')
-    setRecordValue('')
-    setRecordNote('')
-    setRecordNextDate('')
-    setRecordDate(date)
+    store.setEditingRecordId(null)
+    store.setRecordType('weight')
+    store.setRecordValue('')
+    store.setRecordNote('')
+    store.setRecordNextDate('')
+    store.setRecordDate(date)
     setShowCalendarModal(false)
     setDashboardTab('list')
     setMobileTab('record')
@@ -295,28 +301,25 @@ export default function Home() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    setPets([]); setSelectedPetId(null); resetPetForm(); resetRecordForm()
+    store.setSelectedPetId(null)
+    store.resetPetForm()
+    store.resetRecordForm()
     setIsPremium(false); setTrialEndsAt(null); setTrialDaysLeft(null)
   }
 
   function getReminderStatus(nextDate: string | null) {
     const raw = getReminderStatusRaw(nextDate)
     if (!raw) return null
-    
     const colorMap = {
       overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
       soon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
       normal: 'text-gray-500 dark:text-gray-400'
     }
-    
     return { text: raw.text, color: colorMap[raw.status] }
   }
 
   if (loading) return <SkeletonLoader />
-
-  if (!session) {
-    return <LandingPage />
-  }
+  if (!session) return <LandingPage />
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 print:bg-white print:text-black">
@@ -337,31 +340,59 @@ export default function Home() {
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 pb-24 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
           <div className={`${mobileTab === 'pets' ? 'block animate-in fade-in slide-in-from-left-4 duration-300' : 'hidden'} md:block h-full`}>
-            <PetsSidebar pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} editingPetId={editingPetId} petName={petName} setPetName={setPetName} petSpecies={petSpecies} setPetSpecies={setPetSpecies} petBreed={petBreed} setPetBreed={setPetBreed} petBirthDate={petBirthDate} setPetBirthDate={setPetBirthDate} petFile={petFile} setPetFile={setPetFile} petAllergies={petAllergies} setPetAllergies={setPetAllergies} petChronic={petChronic} setPetChronic={setPetChronic} petFood={petFood} setPetFood={setPetFood} petVet={petVet} setPetVet={setPetVet} savingPet={savingPet} savePet={savePet} deletePet={deletePet} startEditingPet={startEditingPet} resetPetForm={resetPetForm} openShareModal={openShareModal} />
+            <PetsSidebar 
+              pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} 
+              session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} 
+              editingPetId={store.editingPetId} petName={store.petName} setPetName={store.setPetName} 
+              petSpecies={store.petSpecies} setPetSpecies={store.setPetSpecies} petBreed={store.petBreed} setPetBreed={store.setPetBreed} 
+              petBirthDate={store.petBirthDate} setPetBirthDate={store.setPetBirthDate} petFile={store.petFile} setPetFile={store.setPetFile} 
+              petAllergies={store.petAllergies} setPetAllergies={store.setPetAllergies} petChronic={store.petChronic} setPetChronic={store.setPetChronic} 
+              petFood={store.petFood} setPetFood={store.setPetFood} petVet={store.petVet} setPetVet={store.setPetVet} 
+              savingPet={savingPet} savePet={store.savePet} deletePet={store.deletePet} 
+              startEditingPet={store.startEditingPet} resetPetForm={store.resetPetForm} openShareModal={openShareModal} 
+            />
           </div>
 
           <div ref={recordFormRef} className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
-            <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
+            <RecordForm 
+              selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} 
+              editingRecordId={store.editingRecordId} addVaccineTemplates={store.addVaccineTemplates} saveRecord={store.saveRecord} 
+              recordType={store.recordType} setRecordType={store.setRecordType} recordValue={store.recordValue} setRecordValue={store.setRecordValue} 
+              recordDate={store.recordDate} setRecordDate={store.setRecordDate} recordNextDate={store.recordNextDate} setRecordNextDate={store.setRecordNextDate} 
+              recordNote={store.recordNote} setRecordNote={store.setRecordNote} savingRecord={store.savingRecord} resetRecordForm={store.resetRecordForm} 
+            />
 
             {selectedPet && (
               <div className="mt-6 animate-in fade-in duration-500">
                 <EmergencyQR
                   pet={selectedPet}
-                  onTokenReset={(newToken: string) =>
-                    setPets(pets.map((p) => (p.id === selectedPet.id ? { ...p, emergency_token: newToken } : p)))
-                  }
+                  onTokenReset={(newToken: string) => {
+                     const updatedPets = pets.map((p) => (p.id === selectedPet.id ? { ...p, emergency_token: newToken } : p));
+                     // Временный костыль, так как в сторе нет метода обновления одного питомца.
+                     // Вызовем fetchPets, чтобы обновить данные с сервера (хотя это лишний запрос, зато безопасно).
+                     fetchPets(); 
+                  }}
                 />
               </div>
             )}
           </div>
 
           <div className={`${mobileTab === 'timeline' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
-            <PetTimeline selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord} uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus} hasMoreRecords={hasMoreRecords} loadingMoreRecords={loadingMoreRecords} loadMoreRecords={loadMoreRecords} />
+            <PetTimeline 
+              selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} 
+              records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} 
+              exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} 
+              startEditingRecord={store.startEditingRecord} deleteRecord={store.deleteRecord} 
+              uploadDocument={store.uploadDocument} deleteDocument={store.deleteDocument} 
+              upcomingEvents={store.records.filter(r => r.next_date).sort((a, b) => new Date(a.next_date!).getTime() - new Date(b.next_date!).getTime())} 
+              totalExpenses={store.records.filter(r => r.type === 'expense' && r.value).reduce((acc, r) => acc + Number(r.value), 0)} 
+              weightData={store.records.filter(r => r.type === 'weight' && r.value).sort((a, b) => new Date(a.record_date).getTime() - new Date(b.record_date).getTime()).map(r => ({ date: r.record_date, weight: Number(r.value) }))} 
+              getReminderStatus={getReminderStatus} hasMoreRecords={store.hasMoreRecords} loadingMoreRecords={store.loadingMoreRecords} loadMoreRecords={store.loadMoreRecords} 
+            />
           </div>
         </main>
 
         <MobileNav mobileTab={mobileTab} setMobileTab={setMobileTab} />
-
       </div>
       <Footer />
     </div>
