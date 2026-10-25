@@ -66,7 +66,8 @@ export default function Home() {
     recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
     deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument,
-    totalExpenses, upcomingEvents, weightData
+    totalExpenses, upcomingEvents, weightData,
+    hasMoreRecords, loadingMoreRecords, loadMoreRecords
   } = useRecords(selectedPetId, selectedPet, hasPremiumAccess, () => setShowPremiumModal(true))
 
   useEffect(() => {
@@ -298,7 +299,6 @@ export default function Home() {
     setIsPremium(false); setTrialEndsAt(null); setTrialDaysLeft(null)
   }
 
-  // Обертка для UI, которая добавляет цвета Tailwind к чистому статусу
   function getReminderStatus(nextDate: string | null) {
     const raw = getReminderStatusRaw(nextDate)
     if (!raw) return null
@@ -356,7 +356,7 @@ export default function Home() {
           </div>
 
           <div className={`${mobileTab === 'timeline' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
-            <PetTimeline selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord} uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus} />
+            <PetTimeline selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} startEditingRecord={startEditingRecord} deleteRecord={deleteRecord} uploadDocument={uploadDocument} deleteDocument={deleteDocument} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} weightData={weightData} getReminderStatus={getReminderStatus} hasMoreRecords={hasMoreRecords} loadingMoreRecords={loadingMoreRecords} loadMoreRecords={loadMoreRecords} />
           </div>
         </main>
 

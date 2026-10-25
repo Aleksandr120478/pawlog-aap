@@ -27,13 +27,18 @@ interface PetTimelineProps {
   totalExpenses: number;
   weightData: { date: string; weight: number }[];
   getReminderStatus: (date: string | null) => { text: string; color: string } | null;
+  // Новые пропсы для пагинации
+  hasMoreRecords: boolean;
+  loadingMoreRecords: boolean;
+  loadMoreRecords: () => void;
 }
 
 export default function PetTimeline({
   selectedPet, dashboardTab, setDashboardTab, records, documents,
   showCalendarModal, setShowCalendarModal, exportToCSV, exportToICS, isDark,
   startEditingRecord, deleteRecord, uploadDocument, deleteDocument,
-  upcomingEvents, totalExpenses, weightData, getReminderStatus
+  upcomingEvents, totalExpenses, weightData, getReminderStatus,
+  hasMoreRecords, loadingMoreRecords, loadMoreRecords
 }: PetTimelineProps) {
   if (!selectedPet) {
     return (
@@ -49,12 +54,10 @@ export default function PetTimeline({
     const toastId = toast.loading('Генерация PDF...', { id: 'pdf-loading' });
     
     try {
-      // Создаем PDF-документ на основе наших данных и компонента PdfReport
       const blob = await pdf(
         <PdfReport pet={selectedPet} records={records} totalExpenses={totalExpenses} />
       ).toBlob();
       
-      // Скачиваем файл
       saveAs(blob, `${selectedPet.name}_Отчет.pdf`);
       toast.success('PDF успешно скачан!', { id: toastId });
     } catch (error) {
@@ -88,7 +91,7 @@ export default function PetTimeline({
       <PetInsights records={records} upcomingEvents={upcomingEvents} totalExpenses={totalExpenses} />
 
       {dashboardTab === 'list' && weightData.length > 0 && (
-        <div className="mb-6 h-48 w-full bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700 shrink-0">
+        <div className="mb-6 h-48 w-full min-w-0 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700 shrink-0">
           <p className="text-xs font-semibold text-gray-500 mb-2 ml-2 uppercase tracking-wider">Динамика веса</p>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData}>
@@ -113,7 +116,6 @@ export default function PetTimeline({
           <button onClick={exportToICS} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
             📅 .ics
           </button>
-          {/* НОВАЯ КНОПКА PDF */}
           <button onClick={handleExportPDF} className="text-xs bg-rose-500 text-white hover:bg-rose-600 px-3 py-1.5 rounded-lg transition shadow-md shadow-rose-500/20">
             📄 Скачать PDF
           </button>
@@ -134,29 +136,44 @@ export default function PetTimeline({
                </button>
              </div>
           ) : (
-            <ul className="space-y-3">
-               {records.map((r: HealthRecord) => (
-                  <li key={r.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 group transition-all hover:shadow-md">
-                     <div className="flex justify-between items-start">
-                        <div>
-                          <span className="font-medium text-gray-800 dark:text-gray-200">{RECORD_LABELS[r.type] || r.type}</span>
-                          {r.value && <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">{r.value}</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">{r.record_date}</span>
-                          <button onClick={() => startEditingRecord(r)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition text-xs">✎</button>
-                          <button onClick={() => deleteRecord(r.id)} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition text-xs">✕</button>
-                        </div>
-                     </div>
-                     {r.note && <p className="text-sm text-gray-500 italic mt-1">{r.note}</p>}
-                     {r.next_date && (
-                       <p className={`text-xs mt-1 font-medium ${getReminderStatus(r.next_date)?.color}`}>
-                         {getReminderStatus(r.next_date)?.text}
-                       </p>
-                     )}
-                  </li>
-               ))}
-            </ul>
+            <div className="space-y-3">
+              <ul className="space-y-3">
+                 {records.map((r: HealthRecord) => (
+                    <li key={r.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 group transition-all hover:shadow-md">
+                       <div className="flex justify-between items-start">
+                          <div>
+                            <span className="font-medium text-gray-800 dark:text-gray-200">{RECORD_LABELS[r.type] || r.type}</span>
+                            {r.value && <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">{r.value}</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">{r.record_date}</span>
+                            <button onClick={() => startEditingRecord(r)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition text-xs">✎</button>
+                            <button onClick={() => deleteRecord(r.id)} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition text-xs">✕</button>
+                          </div>
+                       </div>
+                       {r.note && <p className="text-sm text-gray-500 italic mt-1">{r.note}</p>}
+                       {r.next_date && (
+                         <p className={`text-xs mt-1 font-medium ${getReminderStatus(r.next_date)?.color}`}>
+                           {getReminderStatus(r.next_date)?.text}
+                         </p>
+                       )}
+                    </li>
+                 ))}
+              </ul>
+              
+              {/* Кнопка пагинации */}
+              {hasMoreRecords && (
+                <div className="pt-2 flex justify-center">
+                  <button 
+                    onClick={loadMoreRecords} 
+                    disabled={loadingMoreRecords}
+                    className="text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg transition w-full font-medium disabled:opacity-50"
+                  >
+                    {loadingMoreRecords ? 'Загрузка...' : 'Показать еще'}
+                  </button>
+                </div>
+              )}
+            </div>
           )
         ) : (
           <div className="h-full flex flex-col">
@@ -188,7 +205,8 @@ export default function PetTimeline({
                     <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate w-full">{doc.name}</p>
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 rounded-lg transition-opacity">
                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-white bg-blue-500 p-1.5 rounded-full hover:bg-blue-600">👁</a>
-                       <button onClick={() => deleteDocument(doc.id, '')} className="text-white bg-red-500 p-1.5 rounded-full hover:bg-red-600">✕</button>
+                       {/* Исправлено: передаем doc.url вместо пустой строки */}
+                       <button onClick={() => deleteDocument(doc.id, doc.url)} className="text-white bg-red-500 p-1.5 rounded-full hover:bg-red-600">✕</button>
                     </div>
                   </div>
                 ))}
