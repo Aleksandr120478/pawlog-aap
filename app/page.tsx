@@ -223,6 +223,12 @@ export default function Home() {
 
   async function handleMockPayment() {
     if (!session) return
+
+    if (process.env.NODE_ENV !== 'development') {
+      toast.error('Онлайн-оплата скоро появится!', { id: 'pay-soon' })
+      return
+    }
+
     const toastId = toast.loading('Обработка тестового платежа...', { id: 'pay-loading' });
     await new Promise(resolve => setTimeout(resolve, 1500));
     const { error } = await supabase.rpc('activate_mock_premium');
