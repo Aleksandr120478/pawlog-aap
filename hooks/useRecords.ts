@@ -42,7 +42,7 @@ export function useRecords(
   const startEditingRecord = (record: HealthRecord) => {
     setEditingRecordId(record.id)
     setRecordType(record.type || 'weight')
-    setRecordValue(record.value || '') // <-- ИСПРАВЛЕНО (добавлено || '')
+    setRecordValue(record.value || '')
     setRecordDate(record.record_date)
     setRecordNote(record.note || '')
     setRecordNextDate(record.next_date || '')
@@ -104,7 +104,6 @@ export function useRecords(
   }
 
   const addVaccineTemplates = () => {
-    // Заглушка для быстрых прививок (если нужно, можно расширить)
     setRecordType('vaccine')
     setRecordValue('Комплексная прививка')
     toast.success('Выбран шаблон прививки')
@@ -136,8 +135,21 @@ export function useRecords(
     }
   }
 
-  const deleteDocument = async (id: string, path: string) => {
+  // ИСПРАВЛЕНО: теперь удаляем и из БД, и из Storage
+  const deleteDocument = async (id: string, url: string) => {
     if (!confirm('Удалить документ?')) return
+    
+    // Достаем имя файла из URL (последний элемент после слэша)
+    let filePath = ''
+    if (url) {
+      const urlParts = url.split('/')
+      filePath = urlParts[urlParts.length - 1]
+    }
+
+    if (filePath) {
+      await supabase.storage.from('documents').remove([filePath])
+    }
+
     const { error } = await supabase.from('pet_documents').delete().eq('id', id)
     if (error) toast.error(error.message)
     else {
