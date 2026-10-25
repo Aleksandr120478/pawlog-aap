@@ -1,39 +1,9 @@
 // components/PetsSidebar.tsx
 'use client'
 import { Pet, SPECIES_ICONS } from './types'
-import { Session } from '@supabase/supabase-js'
+import { useAppStore } from '@/store/useAppStore'
 
 interface PetsSidebarProps {
-  pets: Pet[];
-  selectedPetId: string | null;
-  setSelectedPetId: (id: string) => void;
-  session: Session | null; // <--- Убрали any, добавили строгий тип
-  hasPremiumAccess: boolean;
-  ownedPetsCount: number;
-  editingPetId: string | null;
-  petName: string;
-  setPetName: (v: string) => void;
-  petSpecies: string;
-  setPetSpecies: (v: string) => void;
-  petBreed: string;
-  setPetBreed: (v: string) => void;
-  petBirthDate: string;
-  setPetBirthDate: (v: string) => void;
-  petFile: File | null;
-  setPetFile: (v: File | null) => void;
-  petAllergies: string;
-  setPetAllergies: (v: string) => void;
-  petChronic: string;
-  setPetChronic: (v: string) => void;
-  petFood: string;
-  setPetFood: (v: string) => void;
-  petVet: string;
-  setPetVet: (v: string) => void;
-  savingPet: boolean;
-  savePet: (e: React.FormEvent) => void;
-  deletePet: (id: string) => void;
-  startEditingPet: (pet: Pet) => void;
-  resetPetForm: () => void;
   openShareModal: (id: string) => void;
 }
 
@@ -50,13 +20,42 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-export default function PetsSidebar({
-  pets, selectedPetId, setSelectedPetId, session, hasPremiumAccess, ownedPetsCount,
-  editingPetId, petName, setPetName, petSpecies, setPetSpecies, petBreed, setPetBreed,
-  petBirthDate, setPetBirthDate, petFile, setPetFile, petAllergies, setPetAllergies,
-  petChronic, setPetChronic, petFood, setPetFood, petVet, setPetVet,
-  savingPet, savePet, deletePet, startEditingPet, resetPetForm, openShareModal
-}: PetsSidebarProps) {
+export default function PetsSidebar({ openShareModal }: PetsSidebarProps) {
+  // Забираем только нужные данные из стора
+  const pets = useAppStore((state) => state.pets)
+  const selectedPetId = useAppStore((state) => state.selectedPetId)
+  const setSelectedPetId = useAppStore((state) => state.setSelectedPetId)
+  const session = useAppStore((state) => state.session)
+  const hasPremiumAccess = useAppStore((state) => state.hasPremiumAccess)
+  const editingPetId = useAppStore((state) => state.editingPetId)
+  
+  const petName = useAppStore((state) => state.petName)
+  const setPetName = useAppStore((state) => state.setPetName)
+  const petSpecies = useAppStore((state) => state.petSpecies)
+  const setPetSpecies = useAppStore((state) => state.setPetSpecies)
+  const petBreed = useAppStore((state) => state.petBreed)
+  const setPetBreed = useAppStore((state) => state.setPetBreed)
+  const petBirthDate = useAppStore((state) => state.petBirthDate)
+  const setPetBirthDate = useAppStore((state) => state.setPetBirthDate)
+  const petFile = useAppStore((state) => state.petFile)
+  const setPetFile = useAppStore((state) => state.setPetFile)
+  const petAllergies = useAppStore((state) => state.petAllergies)
+  const setPetAllergies = useAppStore((state) => state.setPetAllergies)
+  const petChronic = useAppStore((state) => state.petChronic)
+  const setPetChronic = useAppStore((state) => state.setPetChronic)
+  const petFood = useAppStore((state) => state.petFood)
+  const setPetFood = useAppStore((state) => state.setPetFood)
+  const petVet = useAppStore((state) => state.petVet)
+  const setPetVet = useAppStore((state) => state.setPetVet)
+
+  const savingPet = useAppStore((state) => state.savingPet)
+  const savePet = useAppStore((state) => state.savePet)
+  const deletePet = useAppStore((state) => state.deletePet)
+  const startEditingPet = useAppStore((state) => state.startEditingPet)
+  const resetPetForm = useAppStore((state) => state.resetPetForm)
+
+  const ownedPetsCount = pets.length
+
   return (
     <section className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 print:hidden">
       <div className="flex justify-between items-center mb-4">

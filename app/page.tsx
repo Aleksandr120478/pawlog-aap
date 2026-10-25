@@ -32,16 +32,12 @@ export default function Home() {
 
   const pets = useAppStore(state => state.pets)
   const selectedPetId = useAppStore(state => state.selectedPetId)
-  const setSelectedPetId = useAppStore(state => state.setSelectedPetId)
   const selectedPet = pets.find(p => p.id === selectedPetId) || null
-  const ownedPetsCount = pets.length
-  const savingPet = useAppStore(state => state.savingPet)
   const fetchPets = useAppStore(state => state.fetchPets)
 
   const records = useAppStore(state => state.records)
   const documents = useAppStore(state => state.documents)
   
-  // Достаем все остальные методы и состояния из стора (для прокидывания в компоненты)
   const store = useAppStore()
 
   // --- ЛОКАЛЬНОЕ СОСТОЯНИЕ (UI) ---
@@ -340,17 +336,8 @@ export default function Home() {
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 pb-24 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
           <div className={`${mobileTab === 'pets' ? 'block animate-in fade-in slide-in-from-left-4 duration-300' : 'hidden'} md:block h-full`}>
-            <PetsSidebar 
-              pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} 
-              session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} 
-              editingPetId={store.editingPetId} petName={store.petName} setPetName={store.setPetName} 
-              petSpecies={store.petSpecies} setPetSpecies={store.setPetSpecies} petBreed={store.petBreed} setPetBreed={store.setPetBreed} 
-              petBirthDate={store.petBirthDate} setPetBirthDate={store.setPetBirthDate} petFile={store.petFile} setPetFile={store.setPetFile} 
-              petAllergies={store.petAllergies} setPetAllergies={store.setPetAllergies} petChronic={store.petChronic} setPetChronic={store.setPetChronic} 
-              petFood={store.petFood} setPetFood={store.setPetFood} petVet={store.petVet} setPetVet={store.setPetVet} 
-              savingPet={savingPet} savePet={store.savePet} deletePet={store.deletePet} 
-              startEditingPet={store.startEditingPet} resetPetForm={store.resetPetForm} openShareModal={openShareModal} 
-            />
+            {/* ТЕПЕРЬ ПЕРЕДАЕМ ТОЛЬКО ОДИН ПРОПС */}
+            <PetsSidebar openShareModal={openShareModal} />
           </div>
 
           <div ref={recordFormRef} className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
@@ -366,10 +353,7 @@ export default function Home() {
               <div className="mt-6 animate-in fade-in duration-500">
                 <EmergencyQR
                   pet={selectedPet}
-                  onTokenReset={(newToken: string) => {
-                     const updatedPets = pets.map((p) => (p.id === selectedPet.id ? { ...p, emergency_token: newToken } : p));
-                     // Временный костыль, так как в сторе нет метода обновления одного питомца.
-                     // Вызовем fetchPets, чтобы обновить данные с сервера (хотя это лишний запрос, зато безопасно).
+                  onTokenReset={() => {
                      fetchPets(); 
                   }}
                 />
