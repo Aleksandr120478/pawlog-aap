@@ -1,6 +1,5 @@
 // app/emergency/[token]/page.tsx
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { notFound } from 'next/navigation';
 import type { EmergencyPetInfo } from '@/components/types';
 
@@ -11,36 +10,25 @@ interface EmergencyPageProps {
 }
 
 export default async function EmergencyPage({ params }: EmergencyPageProps) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
+  // Для публичной страницы используем обычный клиент без куки
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Вызываем безопасную SQL-функцию
   const { data, error } = await supabase.rpc('get_emergency_pet_info', {
     token: params.token,
   });
 
   if (error || !data) {
+    console.error('Ошибка RPC:', error);
     notFound(); 
   }
 
-  // БРОНЕБОЙНЫЙ ВАРИАНТ:
-  // Если data - это массив (список), берем первый элемент. 
-  // Если это уже объект, берем его как есть.
+  // Бронебойный вариант: берем объект из массива, если он там есть
   const pet = (Array.isArray(data) ? data[0] : data) as EmergencyPetInfo;
 
-  // Если вдруг питомец пустой, тоже показываем 404
   if (!pet || !pet.name) {
     notFound();
   }
