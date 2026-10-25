@@ -315,8 +315,9 @@ export default function Home() {
 
   if (loading) return <SkeletonLoader />
 
+  // ВОТ ЗДЕСЬ МЫ УБРАЛИ ПЕРЕДАЧУ ПРОПСОВ
   if (!session) {
-    return <LandingPage isDark={isDark} toggleTheme={toggleTheme} />
+    return <LandingPage />
   }
 
   return (

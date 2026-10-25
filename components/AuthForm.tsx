@@ -3,11 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
 
-interface AuthFormProps {
-  isDark: boolean;
-}
-
-export default function AuthForm({ isDark }: AuthFormProps) {
+export default function AuthForm() {
   const [isLogin, setIsLogin] = useState(true)
   const [isForgot, setIsForgot] = useState(false)
   const [email, setEmail] = useState('')
@@ -19,7 +15,6 @@ export default function AuthForm({ isDark }: AuthFormProps) {
     setLoading(true)
 
     if (isForgot) {
-      // Логика восстановления пароля
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
       })
@@ -29,11 +24,9 @@ export default function AuthForm({ isDark }: AuthFormProps) {
         setIsForgot(false)
       }
     } else if (isLogin) {
-      // Логика входа
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) toast.error('Неверный email или пароль', { id: 'auth-err' })
     } else {
-      // Логика регистрации
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) toast.error(error.message, { id: 'auth-err' })
       else toast.success('Регистрация успешна! Проверьте почту для подтверждения.', { id: 'auth-success' })
@@ -42,12 +35,12 @@ export default function AuthForm({ isDark }: AuthFormProps) {
   }
 
   return (
-    <div className="w-full max-w-md p-8 bg-white/10 dark:bg-gray-800/50 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-gray-700 shadow-2xl">
+    <div className="w-full max-w-md p-8 bg-white/60 backdrop-blur-xl rounded-3xl border border-gray-100 shadow-2xl">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
           {isForgot ? 'Восстановление' : isLogin ? 'Добро пожаловать' : 'Создать аккаунт'}
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-500">
           {isForgot ? 'Введите email, и мы вышлем ссылку для сброса' : isLogin ? 'Войдите, чтобы продолжить заботу о любимце.' : 'Начните вести дневник здоровья питомца.'}
         </p>
       </div>
@@ -59,7 +52,7 @@ export default function AuthForm({ isDark }: AuthFormProps) {
             placeholder="Email" 
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none transition"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-rose-500 outline-none transition"
             required 
           />
         </div>
@@ -71,7 +64,7 @@ export default function AuthForm({ isDark }: AuthFormProps) {
               placeholder="Пароль" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none transition"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-rose-500 outline-none transition"
               required 
               minLength={6}
             />
@@ -99,7 +92,7 @@ export default function AuthForm({ isDark }: AuthFormProps) {
         </button>
       </form>
 
-      <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+      <div className="mt-6 text-center text-sm text-gray-600">
         {isForgot ? (
           <button onClick={() => setIsForgot(false)} className="text-rose-500 hover:underline">
             Вернуться ко входу
