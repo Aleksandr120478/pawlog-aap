@@ -1,10 +1,10 @@
 // components/emergency-qr.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import QRCode from 'react-qr-code';
-import { toPng } from 'html-to-image';
+import QRCode from 'react-qr-code'; // Для отображения на сайте (SVG)
+import { toDataURL } from 'qrcode'; // Для скачивания идеального PNG
 import { supabase } from '@/lib/supabaseClient'; 
 import type { Pet } from '@/components/types';
 
@@ -20,11 +20,8 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
   const [saved, setSaved] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  
-  const qrRef = useRef<HTMLDivElement>(null);
 
-  // ЖЕСТКО ЗАДАЕМ ОСНОВНОЙ ДОМЕН, чтобы QR-код всегда вел на рабочий сайт,
-  // даже если мы сейчас смотрим временную сборку Vercel.
+  // Жестко заданный домен
   const PRODUCTION_URL = 'https://pawlog-aap.vercel.app';
   const emergencyUrl = `${PRODUCTION_URL}/emergency/${pet.emergency_token}`;
 
@@ -50,15 +47,17 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
     }
   };
 
+  // Новая функция скачивания (генерирует чистый PNG)
   const handleDownload = async (): Promise<void> => {
-    if (!qrRef.current) return;
     setIsDownloading(true);
-
     try {
-      const dataUrl = await toPng(qrRef.current, { 
-        cacheBust: true, 
-        pixelRatio: 3,
-        backgroundColor: '#ffffff' 
+      const dataUrl = await toDataURL(emergencyUrl, {
+        width: 600, // Четкое разрешение для печати
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
       });
 
       const link = document.createElement('a');
@@ -67,7 +66,7 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
       link.click();
     } catch (err) {
       console.error(err);
-      alert('Не удалось скачать QR-код. Попробуйте сделать скриншот.');
+      alert('Не удалось скачать QR-код.');
     } finally {
       setIsDownloading(false);
     }
@@ -104,10 +103,7 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
       <div className="flex flex-col gap-6">
         
         <div className="flex flex-col items-center gap-3">
-          <div 
-            ref={qrRef} 
-            className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
-          >
+          <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
             <QRCode value={emergencyUrl} size={180} />
           </div>
           
