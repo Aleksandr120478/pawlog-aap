@@ -336,18 +336,12 @@ export default function Home() {
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 pb-24 md:pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:block print:p-0">
           <div className={`${mobileTab === 'pets' ? 'block animate-in fade-in slide-in-from-left-4 duration-300' : 'hidden'} md:block h-full`}>
-            {/* ТЕПЕРЬ ПЕРЕДАЕМ ТОЛЬКО ОДИН ПРОПС */}
             <PetsSidebar openShareModal={openShareModal} />
           </div>
 
           <div ref={recordFormRef} className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
-            <RecordForm 
-              selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} 
-              editingRecordId={store.editingRecordId} addVaccineTemplates={store.addVaccineTemplates} saveRecord={store.saveRecord} 
-              recordType={store.recordType} setRecordType={store.setRecordType} recordValue={store.recordValue} setRecordValue={store.setRecordValue} 
-              recordDate={store.recordDate} setRecordDate={store.setRecordDate} recordNextDate={store.recordNextDate} setRecordNextDate={store.setRecordNextDate} 
-              recordNote={store.recordNote} setRecordNote={store.setRecordNote} savingRecord={store.savingRecord} resetRecordForm={store.resetRecordForm} 
-            />
+            {/* ТЕПЕРЬ ТУТ ЧИСТО, БЕЗ ПРОПСОВ */}
+            <RecordForm />
 
             {selectedPet && (
               <div className="mt-6 animate-in fade-in duration-500">

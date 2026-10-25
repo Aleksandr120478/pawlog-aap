@@ -1,33 +1,29 @@
 'use client'
 
-import { Pet } from '@/components/types'
+import { useAppStore } from '@/store/useAppStore'
 
-interface RecordFormProps {
-  selectedPet: Pet | null;
-  hasPremiumAccess: boolean;
-  recordsCount: number;
-  editingRecordId: string | null;
-  addVaccineTemplates: () => void;
-  saveRecord: (e: React.FormEvent) => void;
-  recordType: string;
-  setRecordType: (v: string) => void;
-  recordValue: string;
-  setRecordValue: (v: string) => void;
-  recordDate: string;
-  setRecordDate: (v: string) => void;
-  recordNextDate: string;
-  setRecordNextDate: (v: string) => void;
-  recordNote: string;
-  setRecordNote: (v: string) => void;
-  savingRecord: boolean;
-  resetRecordForm: () => void;
-}
+export default function RecordForm() {
+  // Получаем нужные данные напрямую из стора
+  const selectedPet = useAppStore(state => state.pets.find(p => p.id === state.selectedPetId) || null)
+  const hasPremiumAccess = useAppStore(state => state.hasPremiumAccess)
+  const recordsCount = useAppStore(state => state.records.length)
+  
+  const editingRecordId = useAppStore(state => state.editingRecordId)
+  const addVaccineTemplates = useAppStore(state => state.addVaccineTemplates)
+  const saveRecord = useAppStore(state => state.saveRecord)
+  const recordType = useAppStore(state => state.recordType)
+  const setRecordType = useAppStore(state => state.setRecordType)
+  const recordValue = useAppStore(state => state.recordValue)
+  const setRecordValue = useAppStore(state => state.setRecordValue)
+  const recordDate = useAppStore(state => state.recordDate)
+  const setRecordDate = useAppStore(state => state.setRecordDate)
+  const recordNextDate = useAppStore(state => state.recordNextDate)
+  const setRecordNextDate = useAppStore(state => state.setRecordNextDate)
+  const recordNote = useAppStore(state => state.recordNote)
+  const setRecordNote = useAppStore(state => state.setRecordNote)
+  const savingRecord = useAppStore(state => state.savingRecord)
+  const resetRecordForm = useAppStore(state => state.resetRecordForm)
 
-export default function RecordForm({
-  selectedPet, hasPremiumAccess, recordsCount, editingRecordId, addVaccineTemplates,
-  saveRecord, recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate,
-  recordNextDate, setRecordNextDate, recordNote, setRecordNote, savingRecord, resetRecordForm
-}: RecordFormProps) {
   const isNumberType = recordType === 'weight' || recordType === 'expense';
 
   return (
@@ -53,7 +49,6 @@ export default function RecordForm({
             <option value="note">Заметка (Дневник)</option>
           </select>
           
-          {/* УМНОЕ ПОЛЕ ВВОДА */}
           <input 
             type={isNumberType ? "number" : "text"} 
             inputMode={isNumberType ? "decimal" : "text"}
