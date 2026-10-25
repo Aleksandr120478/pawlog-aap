@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Session, AuthChangeEvent } from '@supabase/supabase-js'
 import toast from 'react-hot-toast'
@@ -48,6 +48,10 @@ export default function Home() {
   const [newPassword, setNewPassword] = useState('')
   const [updatingPassword, setUpdatingPassword] = useState(false)
 
+  // Состояние для управления скроллом к форме
+  const [shouldScrollToForm, setShouldScrollToForm] = useState(false)
+  const recordFormRef = useRef<HTMLDivElement>(null)
+
   const hasPremiumAccess = isPremium || (trialDaysLeft !== null && trialDaysLeft > 0)
 
   const {
@@ -74,6 +78,16 @@ export default function Home() {
     }
   }, [])
 
+  // Эффект для безопасного скролла после отрисовки
+  useEffect(() => {
+    if (shouldScrollToForm && recordFormRef.current) {
+      requestAnimationFrame(() => {
+        recordFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setShouldScrollToForm(false)
+      })
+    }
+  }, [shouldScrollToForm])
+
   const toggleTheme = async () => {
     const newTheme = isDark ? 'light' : 'dark'
 
@@ -90,10 +104,8 @@ export default function Home() {
   }
 
   const fetchUserStatus = useCallback(async (userId: string) => {
-    // 1. Используем maybeSingle() — он не выдает ошибку, если записи нет, а возвращает null
     let { data } = await supabase.from('user_status').select('*').eq('user_id', userId).maybeSingle()
 
-    // 2. Если записи нет — пытаемся создать
     if (!data) {
       const { data: newData, error: insertError } = await supabase
         .from('user_status')
@@ -104,7 +116,6 @@ export default function Home() {
       if (!insertError) {
         data = newData
       } else if (insertError.code === '23505') {
-        // 3. Обработка Race Condition (unique violation): другая вкладка уже создала запись
         const { data: retryData } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
         if (retryData) data = retryData
       }
@@ -264,9 +275,7 @@ export default function Home() {
     setShowCalendarModal(false)
     setDashboardTab('list')
     setMobileTab('record')
-    setTimeout(() => {
-      document.getElementById('record-form')?.scrollIntoView({ behavior: 'smooth' })
-    }, 100)
+    setShouldScrollToForm(true) // Включаем флаг для скролла
     toast.success(`Дата подставлена: ${date}`, { id: 'date-success' })
   }
 
@@ -329,7 +338,8 @@ export default function Home() {
             <PetsSidebar pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} editingPetId={editingPetId} petName={petName} setPetName={setPetName} petSpecies={petSpecies} setPetSpecies={setPetSpecies} petBreed={petBreed} setPetBreed={setPetBreed} petBirthDate={petBirthDate} setPetBirthDate={setPetBirthDate} petFile={petFile} setPetFile={setPetFile} petAllergies={petAllergies} setPetAllergies={setPetAllergies} petChronic={petChronic} setPetChronic={setPetChronic} petFood={petFood} setPetFood={setPetFood} petVet={petVet} setPetVet={setPetVet} savingPet={savingPet} savePet={savePet} deletePet={deletePet} startEditingPet={startEditingPet} resetPetForm={resetPetForm} openShareModal={openShareModal} />
           </div>
 
-          <div className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
+          {/* Добавили ref={recordFormRef} сюда */}
+          <div ref={recordFormRef} className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
             <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
 
             {selectedPet && (
