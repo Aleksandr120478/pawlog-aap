@@ -21,7 +21,7 @@ import TrialBanner from '@/components/TrialBanner'
 import { usePets } from '@/hooks/usePets'
 import { useRecords } from '@/hooks/useRecords'
 import { buildCsv, generateIcsContent, triggerDownload } from '@/lib/export'
-import { todayLocal } from '@/lib/date'
+import { todayLocal, getReminderStatus as getReminderStatusRaw } from '@/lib/date'
 
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null)
@@ -48,7 +48,6 @@ export default function Home() {
   const [newPassword, setNewPassword] = useState('')
   const [updatingPassword, setUpdatingPassword] = useState(false)
 
-  // Состояние для управления скроллом к форме
   const [shouldScrollToForm, setShouldScrollToForm] = useState(false)
   const recordFormRef = useRef<HTMLDivElement>(null)
 
@@ -78,7 +77,6 @@ export default function Home() {
     }
   }, [])
 
-  // Эффект для безопасного скролла после отрисовки
   useEffect(() => {
     if (shouldScrollToForm && recordFormRef.current) {
       requestAnimationFrame(() => {
@@ -275,7 +273,7 @@ export default function Home() {
     setShowCalendarModal(false)
     setDashboardTab('list')
     setMobileTab('record')
-    setShouldScrollToForm(true) // Включаем флаг для скролла
+    setShouldScrollToForm(true)
     toast.success(`Дата подставлена: ${date}`, { id: 'date-success' })
   }
 
@@ -300,14 +298,18 @@ export default function Home() {
     setIsPremium(false); setTrialEndsAt(null); setTrialDaysLeft(null)
   }
 
+  // Обертка для UI, которая добавляет цвета Tailwind к чистому статусу
   function getReminderStatus(nextDate: string | null) {
-    if (!nextDate) return null;
-    const today = new Date(todayLocal()); const next = new Date(nextDate);
-    const diffTime = next.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return { text: '⚠️ Просрочено!', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
-    if (diffDays <= 7) return { text: `⏰ Через ${diffDays} дн.`, color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' };
-    return { text: `📅 ${nextDate}`, color: 'text-gray-500 dark:text-gray-400' };
+    const raw = getReminderStatusRaw(nextDate)
+    if (!raw) return null
+    
+    const colorMap = {
+      overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      soon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+      normal: 'text-gray-500 dark:text-gray-400'
+    }
+    
+    return { text: raw.text, color: colorMap[raw.status] }
   }
 
   if (loading) return <SkeletonLoader />
@@ -338,7 +340,6 @@ export default function Home() {
             <PetsSidebar pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} session={session} hasPremiumAccess={hasPremiumAccess} ownedPetsCount={ownedPetsCount} editingPetId={editingPetId} petName={petName} setPetName={setPetName} petSpecies={petSpecies} setPetSpecies={setPetSpecies} petBreed={petBreed} setPetBreed={setPetBreed} petBirthDate={petBirthDate} setPetBirthDate={setPetBirthDate} petFile={petFile} setPetFile={setPetFile} petAllergies={petAllergies} setPetAllergies={setPetAllergies} petChronic={petChronic} setPetChronic={setPetChronic} petFood={petFood} setPetFood={setPetFood} petVet={petVet} setPetVet={setPetVet} savingPet={savingPet} savePet={savePet} deletePet={deletePet} startEditingPet={startEditingPet} resetPetForm={resetPetForm} openShareModal={openShareModal} />
           </div>
 
-          {/* Добавили ref={recordFormRef} сюда */}
           <div ref={recordFormRef} className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
             <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
 
