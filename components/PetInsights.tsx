@@ -50,32 +50,35 @@ export default function PetInsights({ records, upcomingEvents, totalExpenses }: 
 
   return (
     <div className="grid grid-cols-3 gap-2 mb-4 shrink-0">
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800 text-center">
-        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Последний вес</p>
-        <p className="text-lg font-bold text-gray-800 dark:text-white">
+      {/* Карточка 1: Вес */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-2 sm:p-3 rounded-xl border border-blue-100 dark:border-blue-800 text-center overflow-hidden flex flex-col justify-center">
+        <p className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400 font-medium mb-1 truncate">Последний вес</p>
+        <p className="text-sm sm:text-lg font-bold text-gray-800 dark:text-white truncate">
           {latestWeight ? `${latestWeight} кг` : '—'}
         </p>
         {weightTrend && (
-          <p className={`text-[10px] font-bold ${weightTrend.color}`}>
+          <p className={`text-[10px] font-bold ${weightTrend.color} truncate`}>
             {weightTrend.text} кг
           </p>
         )}
       </div>
 
-      <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-100 dark:border-orange-800 text-center">
-        <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">До прививки</p>
-        <p className={`text-lg font-bold ${eventColor}`}>
+      {/* Карточка 2: Событие */}
+      <div className="bg-orange-50 dark:bg-orange-900/20 p-2 sm:p-3 rounded-xl border border-orange-100 dark:border-orange-800 text-center overflow-hidden flex flex-col justify-center">
+        <p className="text-[10px] sm:text-xs text-orange-600 dark:text-orange-400 font-medium mb-1 truncate">До прививки</p>
+        <p className={`text-sm sm:text-base font-bold leading-tight break-words ${eventColor}`}>
           {daysToEventText}
         </p>
-        {nextEvent && <p className="text-[10px] text-gray-500 truncate">{RECORD_LABELS[nextEvent.type] || nextEvent.type}</p>}
+        {nextEvent && <p className="text-[10px] text-gray-500 truncate mt-1">{RECORD_LABELS[nextEvent.type] || nextEvent.type}</p>}
       </div>
 
-      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800 text-center">
-        <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">Расходы</p>
-        <p className="text-lg font-bold text-gray-800 dark:text-white">
+      {/* Карточка 3: Расходы */}
+      <div className="bg-green-50 dark:bg-green-900/20 p-2 sm:p-3 rounded-xl border border-green-100 dark:border-green-800 text-center overflow-hidden flex flex-col justify-center">
+        <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 font-medium mb-1 truncate">Расходы</p>
+        <p className="text-sm sm:text-lg font-bold text-gray-800 dark:text-white truncate">
           {totalExpenses > 0 ? `${totalExpenses} ₽` : '0 ₽'}
         </p>
-        <p className="text-[10px] text-gray-500">всего</p>
+        <p className="text-[10px] text-gray-500 truncate">всего</p>
       </div>
     </div>
   )
