@@ -1,45 +1,64 @@
+// components/PetTimeline.tsx
 'use client'
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { saveAs } from 'file-saver'
 import { pdf } from '@react-pdf/renderer'
-import { RECORD_LABELS, Pet, HealthRecord, PetDocument } from './types'
+import { RECORD_LABELS, HealthRecord } from './types'
 import PetInsights from './PetInsights'
 import PdfReport from './PdfReport'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { useAppStore } from '@/store/useAppStore'
+import { buildCsv, generateIcsContent, triggerDownload } from '@/lib/export'
+import { getReminderStatus as getReminderStatusRaw } from '@/lib/date'
 
 interface PetTimelineProps {
-  selectedPet: Pet | null;
-  dashboardTab: 'list' | 'docs';
-  setDashboardTab: (v: 'list' | 'docs') => void;
-  records: HealthRecord[];
-  documents: PetDocument[];
-  showCalendarModal: boolean;
-  setShowCalendarModal: (v: boolean) => void;
-  exportToCSV: () => void;
-  exportToICS: () => void;
   isDark: boolean;
-  startEditingRecord: (record: HealthRecord) => void;
-  deleteRecord: (id: string) => void;
-  uploadDocument: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  deleteDocument: (id: string, path: string) => void;
-  upcomingEvents: HealthRecord[];
-  totalExpenses: number;
-  weightData: { date: string; weight: number }[];
-  getReminderStatus: (date: string | null) => { text: string; color: string } | null;
-  // Новые пропсы для пагинации
-  hasMoreRecords: boolean;
-  loadingMoreRecords: boolean;
-  loadMoreRecords: () => void;
+  onOpenCalendar: () => void;
 }
 
-export default function PetTimeline({
-  selectedPet, dashboardTab, setDashboardTab, records, documents,
-  showCalendarModal, setShowCalendarModal, exportToCSV, exportToICS, isDark,
-  startEditingRecord, deleteRecord, uploadDocument, deleteDocument,
-  upcomingEvents, totalExpenses, weightData, getReminderStatus,
-  hasMoreRecords, loadingMoreRecords, loadMoreRecords
-}: PetTimelineProps) {
+// Локальная функция для цветов статуса (перенесли из page.tsx)
+function getReminderStatus(nextDate: string | null) {
+  const raw = getReminderStatusRaw(nextDate)
+  if (!raw) return null
+  const colorMap = {
+    overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    soon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    normal: 'text-gray-500 dark:text-gray-400'
+  }
+  return { text: raw.text, color: colorMap[raw.status] }
+}
+
+export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps) {
+  const [dashboardTab, setDashboardTab] = useState<'list' | 'docs'>('list')
+
+  // Данные из стора
+  const selectedPet = useAppStore(state => state.pets.find(p => p.id === state.selectedPetId) || null)
+  const records = useAppStore(state => state.records)
+  const documents = useAppStore(state => state.documents)
+  
+  const startEditingRecord = useAppStore(state => state.startEditingRecord)
+  const deleteRecord = useAppStore(state => state.deleteRecord)
+  const uploadDocument = useAppStore(state => state.uploadDocument)
+  const deleteDocument = useAppStore(state => state.deleteDocument)
+  
+  const hasMoreRecords = useAppStore(state => state.hasMoreRecords)
+  const loadingMoreRecords = useAppStore(state => state.loadingMoreRecords)
+  const loadMoreRecords = useAppStore(state => state.loadMoreRecords)
+
+  // Вычисления переносим сюда через useMemo (чтобы не пересчитывать при каждом рендере)
+  const totalExpenses = useMemo(() => {
+    return records.filter(r => r.type === 'expense' && r.value).reduce((acc, r) => acc + Number(r.value), 0)
+  }, [records])
+
+  const upcomingEvents = useMemo(() => {
+    return records.filter(r => r.next_date).sort((a, b) => new Date(a.next_date!).getTime() - new Date(b.next_date!).getTime())
+  }, [records])
+
+  const weightData = useMemo(() => {
+    return records.filter(r => r.type === 'weight' && r.value).sort((a, b) => new Date(a.record_date).getTime() - new Date(b.record_date).getTime()).map(r => ({ date: r.record_date, weight: Number(r.value) }))
+  }, [records])
+
   if (!selectedPet) {
     return (
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center text-gray-500">
@@ -48,22 +67,37 @@ export default function PetTimeline({
     )
   }
 
-  // Функция генерации и скачивания PDF
+  // Функции экспорта перенесли сюда
   const handleExportPDF = async () => {
-    if (!selectedPet) return;
     const toastId = toast.loading('Генерация PDF...', { id: 'pdf-loading' });
-    
     try {
       const blob = await pdf(
         <PdfReport pet={selectedPet} records={records} totalExpenses={totalExpenses} />
       ).toBlob();
-      
       saveAs(blob, `${selectedPet.name}_Отчет.pdf`);
       toast.success('PDF успешно скачан!', { id: toastId });
     } catch (error) {
       console.error(error);
       toast.error('Ошибка при создании PDF', { id: toastId });
     }
+  }
+
+  const exportToCSV = () => {
+    if (records.length === 0) return
+    const csv = buildCsv(selectedPet, records)
+    triggerDownload(csv, `${selectedPet.name}_История.csv`, 'text/csv;charset=utf-8;')
+    toast.success('Файл Excel успешно скачан!', { id: 'csv-success' })
+  }
+
+  const exportToICS = () => {
+    if (records.length === 0) return
+    const ics = generateIcsContent(selectedPet, records)
+    if (!ics) {
+      toast.error('Нет предстоящих событий для экспорта', { id: 'ics-error' })
+      return
+    }
+    triggerDownload(ics, `${selectedPet.name}_calendar.ics`, 'text/calendar;charset=utf-8')
+    toast.success('Файл календаря скачан!', { id: 'ics-success' })
   }
 
   return (
@@ -104,10 +138,10 @@ export default function PetTimeline({
         </div>
       )}
 
-      {/* Кнопки экспорта и Календаря (только для Ленты) */}
+      {/* Кнопки экспорта */}
       {dashboardTab === 'list' && (
         <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
-          <button onClick={() => setShowCalendarModal(true)} className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium">
+          <button onClick={onOpenCalendar} className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium">
             📅 Календарь
           </button>
           <button onClick={exportToCSV} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition">
@@ -161,7 +195,6 @@ export default function PetTimeline({
                  ))}
               </ul>
               
-              {/* Кнопка пагинации */}
               {hasMoreRecords && (
                 <div className="pt-2 flex justify-center">
                   <button 
@@ -205,7 +238,6 @@ export default function PetTimeline({
                     <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate w-full">{doc.name}</p>
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 rounded-lg transition-opacity">
                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-white bg-blue-500 p-1.5 rounded-full hover:bg-blue-600">👁</a>
-                       {/* Исправлено: передаем doc.url вместо пустой строки */}
                        <button onClick={() => deleteDocument(doc.id, doc.url)} className="text-white bg-red-500 p-1.5 rounded-full hover:bg-red-600">✕</button>
                     </div>
                   </div>

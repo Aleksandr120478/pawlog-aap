@@ -18,8 +18,7 @@ import SkeletonLoader from '@/components/SkeletonLoader'
 import { EmergencyQR } from '@/components/emergency-qr'
 import MobileNav from '@/components/MobileNav'
 import TrialBanner from '@/components/TrialBanner'
-import { buildCsv, generateIcsContent, triggerDownload } from '@/lib/export'
-import { todayLocal, getReminderStatus as getReminderStatusRaw } from '@/lib/date'
+import { todayLocal } from '@/lib/date'
 import { useAppStore } from '@/store/useAppStore'
 
 export default function Home() {
@@ -36,8 +35,6 @@ export default function Home() {
   const fetchPets = useAppStore(state => state.fetchPets)
 
   const records = useAppStore(state => state.records)
-  const documents = useAppStore(state => state.documents)
-  
   const store = useAppStore()
 
   // --- ЛОКАЛЬНОЕ СОСТОЯНИЕ (UI) ---
@@ -45,7 +42,6 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false)
   const [mobileTab, setMobileTab] = useState<'pets' | 'record' | 'timeline'>('pets')
 
-  const [dashboardTab, setDashboardTab] = useState<'list' | 'docs'>('list')
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showCalendarModal, setShowCalendarModal] = useState(false)
@@ -215,24 +211,6 @@ export default function Home() {
     }
   }
 
-  function exportToCSV() {
-    if (!selectedPet || records.length === 0) return
-    const csv = buildCsv(selectedPet, records)
-    triggerDownload(csv, `${selectedPet.name}_История.csv`, 'text/csv;charset=utf-8;')
-    toast.success('Файл Excel успешно скачан!', { id: 'csv-success' })
-  }
-
-  function exportToICS() {
-    if (!selectedPet || records.length === 0) return
-    const ics = generateIcsContent(selectedPet, records)
-    if (!ics) {
-      toast.error('Нет предстоящих событий для экспорта', { id: 'ics-error' })
-      return
-    }
-    triggerDownload(ics, `${selectedPet.name}_calendar.ics`, 'text/calendar;charset=utf-8')
-    toast.success('Файл календаря скачан!', { id: 'ics-success' })
-  }
-
   async function startFreeTrial() {
     if (!session) return
     const toastId = toast.loading('Активация Premium...', { id: 'trial-loading' })
@@ -274,7 +252,6 @@ export default function Home() {
     store.setRecordNextDate('')
     store.setRecordDate(date)
     setShowCalendarModal(false)
-    setDashboardTab('list')
     setMobileTab('record')
     setShouldScrollToForm(true)
     toast.success(`Дата подставлена: ${date}`, { id: 'date-success' })
@@ -303,17 +280,6 @@ export default function Home() {
     setIsPremium(false); setTrialEndsAt(null); setTrialDaysLeft(null)
   }
 
-  function getReminderStatus(nextDate: string | null) {
-    const raw = getReminderStatusRaw(nextDate)
-    if (!raw) return null
-    const colorMap = {
-      overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-      soon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-      normal: 'text-gray-500 dark:text-gray-400'
-    }
-    return { text: raw.text, color: colorMap[raw.status] }
-  }
-
   if (loading) return <SkeletonLoader />
   if (!session) return <LandingPage />
 
@@ -340,33 +306,20 @@ export default function Home() {
           </div>
 
           <div ref={recordFormRef} className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
-            {/* ТЕПЕРЬ ТУТ ЧИСТО, БЕЗ ПРОПСОВ */}
             <RecordForm />
 
             {selectedPet && (
               <div className="mt-6 animate-in fade-in duration-500">
                 <EmergencyQR
                   pet={selectedPet}
-                  onTokenReset={() => {
-                     fetchPets(); 
-                  }}
+                  onTokenReset={() => { fetchPets(); }}
                 />
               </div>
             )}
           </div>
 
           <div className={`${mobileTab === 'timeline' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
-            <PetTimeline 
-              selectedPet={selectedPet} dashboardTab={dashboardTab} setDashboardTab={setDashboardTab} 
-              records={records} documents={documents} showCalendarModal={showCalendarModal} setShowCalendarModal={setShowCalendarModal} 
-              exportToCSV={exportToCSV} exportToICS={exportToICS} isDark={isDark} 
-              startEditingRecord={store.startEditingRecord} deleteRecord={store.deleteRecord} 
-              uploadDocument={store.uploadDocument} deleteDocument={store.deleteDocument} 
-              upcomingEvents={store.records.filter(r => r.next_date).sort((a, b) => new Date(a.next_date!).getTime() - new Date(b.next_date!).getTime())} 
-              totalExpenses={store.records.filter(r => r.type === 'expense' && r.value).reduce((acc, r) => acc + Number(r.value), 0)} 
-              weightData={store.records.filter(r => r.type === 'weight' && r.value).sort((a, b) => new Date(a.record_date).getTime() - new Date(b.record_date).getTime()).map(r => ({ date: r.record_date, weight: Number(r.value) }))} 
-              getReminderStatus={getReminderStatus} hasMoreRecords={store.hasMoreRecords} loadingMoreRecords={store.loadingMoreRecords} loadMoreRecords={store.loadMoreRecords} 
-            />
+            <PetTimeline isDark={isDark} onOpenCalendar={() => setShowCalendarModal(true)} />
           </div>
         </main>
 
