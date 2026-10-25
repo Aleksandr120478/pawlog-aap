@@ -27,18 +27,23 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
     }
   );
 
-  // Вызываем безопасную SQL-функцию (теперь она отдает объект, а не массив)
   const { data, error } = await supabase.rpc('get_emergency_pet_info', {
     token: params.token,
   });
 
-  // Если есть ошибка или данных нет — показываем 404
   if (error || !data) {
     notFound(); 
   }
 
-  // Приводим тип (данные теперь объект)
-  const pet = data as EmergencyPetInfo;
+  // БРОНЕБОЙНЫЙ ВАРИАНТ:
+  // Если data - это массив (список), берем первый элемент. 
+  // Если это уже объект, берем его как есть.
+  const pet = (Array.isArray(data) ? data[0] : data) as EmergencyPetInfo;
+
+  // Если вдруг питомец пустой, тоже показываем 404
+  if (!pet || !pet.name) {
+    notFound();
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
