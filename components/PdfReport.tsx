@@ -2,19 +2,19 @@ import React from 'react'
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
 import { Pet, HealthRecord, RECORD_LABELS } from './types'
 
-// Подключаем шрифт с поддержкой кириллицы (русского языка)
+// Подключаем шрифт с поддержкой кириллицы из нашей локальной папки public/fonts
 Font.register({
   family: 'Roboto',
   fonts: [
-    { src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/roboto@1.0.4/Roboto-Regular.ttf' },
-    { src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/roboto@1.0.4/Roboto-Bold.ttf', fontWeight: 'bold' },
-    { src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/roboto@1.0.4/Roboto-Italic.ttf', fontStyle: 'italic' },
+    { src: '/fonts/Roboto-Regular.ttf' },
+    { src: '/fonts/Roboto-Bold.ttf', fontWeight: 'bold' },
+    { src: '/fonts/Roboto-Italic.ttf', fontStyle: 'italic' },
   ]
 })
 
 // Стили для PDF
 const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: 'Roboto', fontSize: 12, color: '#333' }, // Применили шрифт
+  page: { padding: 30, fontFamily: 'Roboto', fontSize: 12, color: '#333' },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#e11d48', paddingBottom: 10 },
   logo: { fontSize: 24, fontWeight: 'bold', color: '#e11d48' },
   subtitle: { fontSize: 10, color: '#666', marginTop: 4 },
