@@ -1,4 +1,6 @@
+// app/page.tsx
 'use client'
+
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { Session } from '@supabase/supabase-js'
@@ -13,6 +15,7 @@ import PetsSidebar from '../components/PetsSidebar'
 import RecordForm from '../components/RecordForm'
 import PetTimeline from '../components/PetTimeline'
 import SkeletonLoader from '../components/SkeletonLoader'
+import { EmergencyQR } from '@/components/emergency-qr'; // <-- Импорт QR-кода
 import { usePets } from '../hooks/usePets'
 import { useRecords } from '../hooks/useRecords'
 import { generateICS } from '../lib/ics'
@@ -315,7 +318,6 @@ export default function Home() {
 
   if (loading) return <SkeletonLoader />
 
-  // ВОТ ЗДЕСЬ МЫ УБРАЛИ ПЕРЕДАЧУ ПРОПСОВ
   if (!session) {
     return <LandingPage />
   }
@@ -349,6 +351,13 @@ export default function Home() {
 
           <div className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
             <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
+            
+            {selectedPet && (
+              <div className="mt-6 animate-in fade-in duration-500">
+                <EmergencyQR pet={selectedPet} />
+              </div>
+            )}
+
           </div>
 
           <div className={`${mobileTab === 'timeline' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>

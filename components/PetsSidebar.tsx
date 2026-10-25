@@ -1,11 +1,13 @@
+// components/PetsSidebar.tsx
 'use client'
 import { Pet, SPECIES_ICONS } from './types'
+import { Session } from '@supabase/supabase-js'
 
 interface PetsSidebarProps {
   pets: Pet[];
   selectedPetId: string | null;
   setSelectedPetId: (id: string) => void;
-  session: any;
+  session: Session | null; // <--- Убрали any, добавили строгий тип
   hasPremiumAccess: boolean;
   ownedPetsCount: number;
   editingPetId: string | null;

@@ -1,3 +1,14 @@
+// components/types.ts
+
+export const SPECIES_ICONS: Record<string, string> = {
+  'Собака': '🐶',
+  'Кошка': '🐱',
+  'Кролик': '🐰',
+  'Хомяк': '🐹',
+  'Черепаха': '🐢',
+  'Другое': '🐾',
+};
+
 export interface Pet {
   id: string;
   user_id: string;
@@ -11,6 +22,19 @@ export interface Pet {
   food?: string | null;
   vet_contact?: string | null;
   created_at?: string;
+  
+  // НОВЫЕ ПОЛЯ ДЛЯ ЭКСТРЕННОЙ КАРТОЧКИ
+  emergency_token: string;
+  emergency_contact: string | null;
+  medical_notes: string | null;
+}
+
+export interface EmergencyPetInfo {
+  name: string;
+  species: string;
+  breed: string | null;
+  emergency_contact: string | null;
+  medical_notes: string | null;
 }
 
 export interface HealthRecord {
@@ -46,14 +70,4 @@ export const RECORD_LABELS: Record<string, string> = {
   medication: 'Лекарство',
   expense: 'Расход',
   note: 'Заметка',
-};
-
-export const SPECIES_ICONS: Record<string, string> = {
-  'Собака': '🐶',
-  'Кошка': '🐱',
-  'Попугай': '🦜',
-  'Кролик': '🐰',
-  'Хомяк': '🐹',
-  'Черепаха': '🐢',
-  'Другое': '🐾'
 };
