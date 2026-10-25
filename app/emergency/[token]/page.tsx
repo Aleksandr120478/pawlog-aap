@@ -27,16 +27,19 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
     }
   );
 
-  // Вызываем безопасную SQL-функцию, которую создали в самом начале
+  // Вызываем безопасную SQL-функцию
   const { data, error } = await supabase.rpc('get_emergency_pet_info', {
     token: params.token,
   });
 
-  if (error || !data) {
-    notFound(); // Если токена нет или он неверный, покажет 404 страницу
+  // ВАЖНО: Теперь data - это массив (список). 
+  // Проверяем, что он существует, является массивом и не пустой.
+  if (error || !data || !Array.isArray(data) || data.length === 0) {
+    notFound(); // Если токена нет, покажет 404
   }
 
-  const pet = data as EmergencyPetInfo;
+  // Берем первого (и единственного) питомца из списка
+  const pet = data[0] as EmergencyPetInfo;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
@@ -61,10 +64,11 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
             </p>
           </div>
 
-          {pet.medical_notes && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-              <span className="text-sm font-bold text-amber-800">Медицинская информация:</span>
-              <p className="mt-1 text-sm text-amber-900">{pet.medical_notes}</p>
+          {/* Показываем аллергии, если они есть */}
+          {pet.allergies && (
+            <div>
+              <span className="text-sm font-medium text-gray-500">Аллергии / Особенности</span>
+              <p className="text-gray-900 text-red-600 font-medium">{pet.allergies}</p>
             </div>
           )}
         </div>

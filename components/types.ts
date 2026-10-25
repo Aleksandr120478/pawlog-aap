@@ -33,8 +33,9 @@ export interface EmergencyPetInfo {
   name: string;
   species: string;
   breed: string | null;
+  allergies: string | null;         // <--- ДОБАВЛЕНО
   emergency_contact: string | null;
-  medical_notes: string | null;
+  // medical_notes убран, так как мы скрыли его в базе данных ради безопасности
 }
 
 export interface HealthRecord {
