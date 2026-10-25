@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
 import { HealthRecord, Pet, PetDocument } from '../components/types'
 
+const PAGE_SIZE = 50
+
 export function useRecords(
   selectedPetId: string | null,
   selectedPet: Pet | null,
@@ -13,6 +15,11 @@ export function useRecords(
   const [documents, setDocuments] = useState<PetDocument[]>([])
   const [savingRecord, setSavingRecord] = useState(false)
   
+  // Пагинация
+  const [recordsPage, setRecordsPage] = useState(0)
+  const [hasMoreRecords, setHasMoreRecords] = useState(false)
+  const [loadingMoreRecords, setLoadingMoreRecords] = useState(false)
+
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [recordType, setRecordType] = useState('weight')
   const [recordValue, setRecordValue] = useState('')
@@ -20,24 +27,64 @@ export function useRecords(
   const [recordNote, setRecordNote] = useState('')
   const [recordNextDate, setRecordNextDate] = useState('')
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (page = 0, append = false) => {
     if (!selectedPetId) {
       setRecords([])
-      setDocuments([])
+      setHasMoreRecords(false)
       return
     }
     
-    // Ограничение 50 записями для защиты от зависаний
-    const { data: recs } = await supabase.from('health_records').select('*').eq('pet_id', selectedPetId).order('record_date', { ascending: false }).limit(50)
-    const { data: docs } = await supabase.from('pet_documents').select('*').eq('pet_id', selectedPetId).order('created_at', { ascending: false })
+    if (append) setLoadingMoreRecords(true)
+
+    const from = page * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data: recs, error } = await supabase
+      .from('health_records')
+      .select('*')
+      .eq('pet_id', selectedPetId)
+      .order('record_date', { ascending: false })
+      .range(from, to)
+
+    if (error) {
+      toast.error('Ошибка загрузки записей')
+    } else if (recs) {
+      if (append) {
+        setRecords(prev => [...prev, ...recs])
+      } else {
+        setRecords(recs)
+      }
+      setHasMoreRecords(recs.length === PAGE_SIZE)
+      setRecordsPage(page)
+    }
     
-    if (recs) setRecords(recs)
+    if (append) setLoadingMoreRecords(false)
+  }, [selectedPetId])
+
+  const fetchDocuments = useCallback(async () => {
+    if (!selectedPetId) {
+      setDocuments([])
+      return
+    }
+    const { data: docs } = await supabase
+      .from('pet_documents')
+      .select('*')
+      .eq('pet_id', selectedPetId)
+      .order('created_at', { ascending: false })
+    
     if (docs) setDocuments(docs)
   }, [selectedPetId])
 
   useEffect(() => {
-    fetchRecords()
-  }, [fetchRecords])
+    fetchRecords(0, false)
+    fetchDocuments()
+  }, [fetchRecords, fetchDocuments])
+
+  const loadMoreRecords = () => {
+    if (!loadingMoreRecords && hasMoreRecords) {
+      fetchRecords(recordsPage + 1, true)
+    }
+  }
 
   const startEditingRecord = (record: HealthRecord) => {
     setEditingRecordId(record.id)
@@ -78,7 +125,7 @@ export function useRecords(
       if (error) toast.error(error.message)
       else {
         toast.success('Запись обновлена')
-        fetchRecords()
+        fetchRecords(0, false) // Сбрасываем на первую страницу после обновления
         resetRecordForm()
       }
     } else {
@@ -86,7 +133,7 @@ export function useRecords(
       if (error) toast.error(error.message)
       else {
         toast.success('Запись добавлена')
-        fetchRecords()
+        fetchRecords(0, false) // Сбрасываем на первую страницу после добавления
         resetRecordForm()
       }
     }
@@ -99,7 +146,7 @@ export function useRecords(
     if (error) toast.error(error.message)
     else {
       toast.success('Запись удалена')
-      fetchRecords()
+      fetchRecords(0, false) // Сбрасываем на первую страницу
     }
   }
 
@@ -131,15 +178,13 @@ export function useRecords(
     if (error) toast.error(error.message)
     else {
       toast.success('Документ загружен')
-      fetchRecords()
+      fetchDocuments() // Обновляем только документы
     }
   }
 
-  // ИСПРАВЛЕНО: теперь удаляем и из БД, и из Storage
   const deleteDocument = async (id: string, url: string) => {
     if (!confirm('Удалить документ?')) return
     
-    // Достаем имя файла из URL (последний элемент после слэша)
     let filePath = ''
     if (url) {
       const urlParts = url.split('/')
@@ -154,7 +199,7 @@ export function useRecords(
     if (error) toast.error(error.message)
     else {
       toast.success('Документ удален')
-      fetchRecords()
+      fetchDocuments() // Обновляем только документы
     }
   }
 
@@ -181,6 +226,8 @@ export function useRecords(
     recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
     deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument,
-    totalExpenses, upcomingEvents, weightData
+    totalExpenses, upcomingEvents, weightData,
+    // Добавляем наружу для пагинации
+    hasMoreRecords, loadingMoreRecords, loadMoreRecords
   }
 }
