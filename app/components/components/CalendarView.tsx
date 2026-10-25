@@ -1,16 +1,10 @@
 'use client'
-import { useState } from 'react'
 
-type HealthRecord = {
-  id: string; pet_id: string; type: string; value: string;
-  note: string | null; record_date: string; next_date: string | null;
-}
+import { useState, useMemo } from 'react'
+import { HealthRecord, RECORD_LABELS } from '@/components/types'
+import { todayLocal } from '@/lib/date'
 
-function todayLocal() {
-  const d = new Date()
-  const offset = d.getTimezoneOffset()
-  return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
-}
+type CalendarEvent = HealthRecord & { isReminder: boolean }
 
 export default function CalendarView({ records }: { records: HealthRecord[] }) {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -27,19 +21,26 @@ export default function CalendarView({ records }: { records: HealthRecord[] }) {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
 
-  const eventsByDate: Record<string, HealthRecord[]> = {}
-  records.forEach(r => {
-    if (r.record_date) {
-      eventsByDate[r.record_date] = eventsByDate[r.record_date] || []
-      eventsByDate[r.record_date].push(r)
-    }
-    if (r.next_date) {
-      eventsByDate[r.next_date] = eventsByDate[r.next_date] || []
-      eventsByDate[r.next_date].push({ ...r, type: 'reminder', value: 'Напоминание: ' + r.value })
-    }
-  })
+  // Оптимизация: пересчитываем события только при изменении записей
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {}
+    records.forEach((r) => {
+      if (r.record_date) {
+        map[r.record_date] = map[r.record_date] || []
+        map[r.record_date].push({ ...r, isReminder: false })
+      }
+      if (r.next_date) {
+        map[r.next_date] = map[r.next_date] || []
+        // Делаем ID уникальным, чтобы React не ругался на одинаковые ключи
+        map[r.next_date].push({ ...r, isReminder: true, id: `${r.id}-reminder` })
+      }
+    })
+    return map
+  }, [records])
 
-  const blanks = Array.from({ length: startingDay }, (_, i) => <div key={`blank-${i}`} className="h-20 md:h-24 bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-lg"></div>)
+  const blanks = Array.from({ length: startingDay }, (_, i) => (
+    <div key={`blank-${i}`} className="h-20 md:h-24 bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50 rounded-lg"></div>
+  ))
   
   const days = Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1
@@ -51,11 +52,22 @@ export default function CalendarView({ records }: { records: HealthRecord[] }) {
       <div key={day} className={`h-20 md:h-24 p-1 border rounded-lg overflow-hidden flex flex-col ${isToday ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
         <span className={`text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{day}</span>
         <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-1 custom-scrollbar">
-          {dayEvents.map((e, idx) => (
-            <div key={idx} title={e.value} className={`text-[10px] truncate px-1 rounded ${e.type === 'reminder' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}>
-              {e.value}
-            </div>
-          ))}
+          {dayEvents.map((e) => {
+            const label = RECORD_LABELS[e.type] || e.type
+            const displayText = e.isReminder 
+              ? `🔔 ${label}: ${e.value || 'Напоминание'}` 
+              : `${label}: ${e.value || ''}`
+
+            return (
+              <div 
+                key={e.id} 
+                title={displayText} 
+                className={`text-[10px] truncate px-1 rounded ${e.isReminder ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}
+              >
+                {displayText}
+              </div>
+            )
+          })}
         </div>
       </div>
     )

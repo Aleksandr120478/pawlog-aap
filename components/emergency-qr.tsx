@@ -1,97 +1,142 @@
-// components/emergency-qr.tsx
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import QRCode from 'react-qr-code'; // Для отображения на сайте (SVG)
-import { toDataURL } from 'qrcode'; // Для скачивания идеального PNG
-import { supabase } from '@/lib/supabaseClient'; 
-import type { Pet } from '@/components/types';
+import { useState, useEffect, useRef } from 'react'
+import QRCode from 'react-qr-code'
+import { toDataURL } from 'qrcode'
+import toast from 'react-hot-toast'
+import { supabase } from '@/lib/supabaseClient'
+import type { Pet } from '@/components/types'
 
 interface EmergencyQRProps {
-  pet: Pet;
+  pet: Pet
+  onTokenReset?: (newToken: string) => void
 }
 
-export function EmergencyQR({ pet }: EmergencyQRProps) {
-  const router = useRouter();
-  const [contact, setContact] = useState<string>(pet.emergency_contact || '');
-  const [allergies, setAllergies] = useState<string>(pet.allergies || '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+function getAppBaseUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL
+  if (!raw) return ''
+  return raw.replace(/\/+$/, '')
+}
 
-  // Жестко заданный домен
-  const PRODUCTION_URL = 'https://pawlog-aap.vercel.app';
-  const emergencyUrl = `${PRODUCTION_URL}/emergency/${pet.emergency_token}`;
+function generateEmergencyToken(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+export function EmergencyQR({ pet, onTokenReset }: EmergencyQRProps) {
+  const [contact, setContact] = useState<string>(pet.emergency_contact ?? '')
+  const [allergies, setAllergies] = useState<string>(pet.allergies ?? '')
+  const [token, setToken] = useState<string>(pet.emergency_token)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setContact(pet.emergency_contact ?? '')
+    setAllergies(pet.allergies ?? '')
+    setToken(pet.emergency_token)
+  }, [pet.id, pet.emergency_contact, pet.allergies, pet.emergency_token])
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+    }
+  }, [])
+
+  const baseUrl = getAppBaseUrl()
+  const emergencyUrl = baseUrl ? `${baseUrl}/emergency/${token}` : ''
 
   const handleSave = async (): Promise<void> => {
-    setIsSaving(true);
-    setSaved(false);
+    setIsSaving(true)
+    setSaved(false)
 
     const { error } = await supabase
       .from('pets')
       .update({
         emergency_contact: contact,
-        allergies: allergies,
+        allergies,
       })
-      .eq('id', pet.id);
+      .eq('id', pet.id)
 
-    setIsSaving(false);
+    setIsSaving(false)
 
     if (error) {
-      alert('Ошибка при сохранении: ' + error.message);
-    } else {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      toast.error('Ошибка при сохранении: ' + error.message, { id: 'qr-save' })
+      return
     }
-  };
+    setSaved(true)
+    toast.success('Данные экстренной карточки сохранены', { id: 'qr-save' })
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+    savedTimerRef.current = setTimeout(() => setSaved(false), 3000)
+  }
 
-  // Новая функция скачивания (генерирует чистый PNG)
   const handleDownload = async (): Promise<void> => {
-    setIsDownloading(true);
+    if (!emergencyUrl) return
+    setIsDownloading(true)
     try {
       const dataUrl = await toDataURL(emergencyUrl, {
-        width: 600, // Четкое разрешение для печати
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      });
-
-      const link = document.createElement('a');
-      link.download = `QR-${pet.name}.png`;
-      link.href = dataUrl;
-      link.click();
+        width: 600,
+        margin: 4,
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+      const link = document.createElement('a')
+      link.download = `QR-${pet.name}.png`
+      link.href = dataUrl
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('QR-код скачан', { id: 'qr-download' })
     } catch (err) {
-      console.error(err);
-      alert('Не удалось скачать QR-код.');
+      console.error(err)
+      toast.error('Не удалось скачать QR-код', { id: 'qr-download' })
     } finally {
-      setIsDownloading(false);
+      setIsDownloading(false)
     }
-  };
+  }
 
   const handleRegenerate = async (): Promise<void> => {
-    const confirmReset = window.confirm('Вы уверены? Старый QR-код перестанет работать, и вам нужно будет распечатать новый.');
-    if (!confirmReset) return;
+    const confirmReset = window.confirm(
+      'Вы уверены? Старый QR-код перестанет работать, и вам нужно будет распечатать новый.'
+    )
+    if (!confirmReset) return
 
-    setIsResetting(true);
-    const newToken = crypto.randomUUID();
+    setIsResetting(true)
+    const newToken = generateEmergencyToken()
 
     const { error } = await supabase
       .from('pets')
       .update({ emergency_token: newToken })
-      .eq('id', pet.id);
+      .eq('id', pet.id)
 
-    setIsResetting(false);
+    setIsResetting(false)
 
     if (error) {
-      alert('Ошибка при сбросе токена: ' + error.message);
-    } else {
-      router.refresh();
+      toast.error('Ошибка при сбросе токена: ' + error.message, { id: 'qr-reset' })
+      return
     }
-  };
+    setToken(newToken)
+    onTokenReset?.(newToken)
+    toast.success('QR-код обновлён. Не забудьте скачать и распечатать новый.', { id: 'qr-reset' })
+  }
+
+  if (!baseUrl) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/50 dark:bg-red-900/20">
+        <h3 className="mb-2 text-lg font-bold text-red-800 dark:text-red-300">QR-код недоступен</h3>
+        <p className="text-sm text-red-700 dark:text-red-400">
+          Не задана переменная окружения{' '}
+          <code className="font-mono">NEXT_PUBLIC_APP_URL</code>. Задай её в Vercel →
+          Settings → Environment Variables и пересобери приложение.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
@@ -101,12 +146,11 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
       </p>
 
       <div className="flex flex-col gap-6">
-        
         <div className="flex flex-col items-center gap-3">
           <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
             <QRCode value={emergencyUrl} size={180} />
           </div>
-          
+
           <div className="flex gap-4 items-center">
             <button
               type="button"
@@ -173,5 +217,5 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }

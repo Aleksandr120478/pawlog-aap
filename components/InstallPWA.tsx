@@ -1,5 +1,7 @@
 'use client'
+
 import { useState, useEffect } from 'react'
+import toast from 'react-hot-toast'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -19,17 +21,25 @@ export default function InstallPWA() {
       setDeferredPrompt(e as BeforeInstallPromptEvent)
     }
     
-    window.addEventListener('beforeinstallprompt', handler)
+    const installedHandler = () => {
+      setIsVisible(false)
+      toast.success('Приложение успешно установлено!', { id: 'pwa-installed' })
+    }
 
-    // Показываем кнопку через 2 секунды, если пользователь не закрыл её ранее
+    window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', installedHandler)
+
+    // Показываем кнопку через 2 секунды, если пользователь не закрыл её ранее (TTL 7 дней)
     const timer = setTimeout(() => {
-      if (!localStorage.getItem('pwa-dismissed')) {
+      const dismissedUntil = localStorage.getItem('pwa-dismissed-until')
+      if (!dismissedUntil || Date.now() > parseInt(dismissedUntil, 10)) {
         setIsVisible(true)
       }
     }, 2000)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', installedHandler)
       clearTimeout(timer)
     }
   }, [])
@@ -45,13 +55,30 @@ export default function InstallPWA() {
       setDeferredPrompt(null)
     } else {
       // Инструкция для iPhone или если браузер заблокировал установку
-      alert('Чтобы установить приложение:\n\n1. Нажмите на три точки (или кнопку Поделиться).\n2. Выберите "Установить приложение" или "Добавить на главный экран".')
+      toast(
+        (t) => (
+          <div className="text-sm">
+            <p className="font-semibold mb-1">Установка на iPhone/iPad:</p>
+            <p>1. Нажмите кнопку «Поделиться» (квадрат со стрелкой).</p>
+            <p>2. Выберите «Добавить на главный экран».</p>
+            <button 
+              onClick={() => toast.dismiss(t.id)} 
+              className="mt-2 bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-md text-xs font-bold"
+            >
+              Понятно
+            </button>
+          </div>
+        ),
+        { duration: 8000, id: 'pwa-instructions' }
+      )
     }
   }
 
   const handleDismiss = () => {
     setIsVisible(false)
-    localStorage.setItem('pwa-dismissed', 'true')
+    // Скрываем на 7 дней (7 * 24 * 60 * 60 * 1000 миллисекунд)
+    const oneWeek = 7 * 24 * 60 * 60 * 1000
+    localStorage.setItem('pwa-dismissed-until', (Date.now() + oneWeek).toString())
   }
 
   if (!isVisible) return null
@@ -76,7 +103,7 @@ export default function InstallPWA() {
         </div>
 
         <div className="flex items-center gap-1">
-          <button onClick={handleDismiss} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 text-lg leading-none transition-colors">
+          <button aria-label="Закрыть" onClick={handleDismiss} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 text-lg leading-none transition-colors">
             &times;
           </button>
           <button onClick={handleInstall} className="bg-rose-500 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-rose-600 active:scale-95 transition-all shadow-sm">

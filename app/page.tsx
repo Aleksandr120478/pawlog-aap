@@ -8,43 +8,38 @@ import toast from 'react-hot-toast'
 import LandingPage from '@/components/LandingPage'
 import CalendarModal from '@/components/CalendarModal'
 import { ShareModal, PremiumModal, SettingsModal } from '@/components/AppModals'
-import { RECORD_LABELS, PetShare } from '@/components/types'
+import { PetShare } from '@/components/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import PetsSidebar from '@/components/PetsSidebar'
 import RecordForm from '@/components/RecordForm'
 import PetTimeline from '@/components/PetTimeline'
 import SkeletonLoader from '@/components/SkeletonLoader'
-import { EmergencyQR } from '@/components/emergency-qr';
+import { EmergencyQR } from '@/components/emergency-qr'
 import MobileNav from '@/components/MobileNav'
 import TrialBanner from '@/components/TrialBanner'
 import { usePets } from '@/hooks/usePets'
 import { useRecords } from '@/hooks/useRecords'
-import { generateICS } from '@/lib/ics'
-
-function todayLocal() {
-  const d = new Date()
-  const offset = d.getTimezoneOffset()
-  return new Date(d.getTime() - offset * 60000).toISOString().split('T')[0]
-}
+import { buildCsv, generateIcsContent, triggerDownload } from '@/lib/export'
+import { todayLocal } from '@/lib/date'
 
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [isDark, setIsDark] = useState(false)
   const [mobileTab, setMobileTab] = useState<'pets' | 'record' | 'timeline'>('pets')
-  
+
   const [dashboardTab, setDashboardTab] = useState<'list' | 'docs'>('list')
-  const [showPremiumModal, setShowPremiumModal] = useState(false) 
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showCalendarModal, setShowCalendarModal] = useState(false)
-  
+
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(todayLocal())
   const [petShares, setPetShares] = useState<PetShare[]>([])
   const [shareEmail, setShareEmail] = useState('')
   const [sharingPetId, setSharingPetId] = useState<string | null>(null)
-  
+
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
   const [isPremium, setIsPremium] = useState(false)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
@@ -58,13 +53,13 @@ export default function Home() {
   const {
     pets, setPets, selectedPetId, setSelectedPetId, selectedPet, savingPet, ownedPetsCount,
     fetchPets, editingPetId, petName, setPetName, petSpecies, setPetSpecies, petBreed, setPetBreed,
-    petBirthDate, setPetBirthDate, petFile, setPetFile, petAllergies, setPetAllergies, 
-    petChronic, setPetChronic, petFood, setPetFood, petVet, setPetVet, 
+    petBirthDate, setPetBirthDate, petFile, setPetFile, petAllergies, setPetAllergies,
+    petChronic, setPetChronic, petFood, setPetFood, petVet, setPetVet,
     startEditingPet, resetPetForm, savePet, deletePet
   } = usePets(session, hasPremiumAccess, () => setShowPremiumModal(true))
 
   const {
-    records, documents, savingRecord, editingRecordId, setEditingRecordId, 
+    records, documents, savingRecord, editingRecordId, setEditingRecordId,
     recordType, setRecordType, recordValue, setRecordValue, recordDate, setRecordDate, recordNote, setRecordNote,
     recordNextDate, setRecordNextDate, startEditingRecord, resetRecordForm, saveRecord,
     deleteRecord, addVaccineTemplates, uploadDocument, deleteDocument,
@@ -81,7 +76,7 @@ export default function Home() {
 
   const toggleTheme = async () => {
     const newTheme = isDark ? 'light' : 'dark'
-    
+
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark'); setIsDark(true)
     } else {
@@ -96,12 +91,12 @@ export default function Home() {
 
   const fetchUserStatus = useCallback(async (userId: string) => {
     let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
-    
+
     if (error && error.code === 'PGRST116') {
       const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
       if (!insertError) data = newData
     }
-    
+
     if (data) {
       setIsPremium(data.is_premium || false)
       if (data.trial_ends_at) {
@@ -149,10 +144,10 @@ export default function Home() {
     const cleanEmail = shareEmail.trim().toLowerCase();
     if (!cleanEmail || !sharingPetId) return toast.error('Введите email', { id: 'share-error' })
     if (cleanEmail === session?.user.email?.toLowerCase()) return toast.error('Вы не можете поделиться с самим собой', { id: 'share-error' })
-    
+
     const toastId = toast.loading('Отправка приглашения...', { id: 'share-loading' })
     const { data: existing } = await supabase.from('pet_shares').select('id').eq('pet_id', sharingPetId).eq('shared_with_email', cleanEmail).single()
-    
+
     if (existing) return toast.error('Этот пользователь уже имеет доступ', { id: toastId })
 
     const { error } = await supabase.from('pet_shares').insert({ pet_id: sharingPetId, shared_with_email: cleanEmail })
@@ -196,52 +191,21 @@ export default function Home() {
   }
 
   function exportToCSV() {
-    if (!selectedPet || records.length === 0) return;
-    const headers = ['Дата', 'Тип', 'Значение', 'Заметка', 'Следующее напоминание'];
-    const rows = records.map(r => [
-      r.record_date, RECORD_LABELS[r.type] || r.type, r.value,
-      `"${(r.note || '').replace(/"/g, '""')}"`, r.next_date || ''
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${selectedPet.name}_История.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Файл Excel успешно скачан!', { id: 'csv-success' });
+    if (!selectedPet || records.length === 0) return
+    const csv = buildCsv(selectedPet, records)
+    triggerDownload(csv, `${selectedPet.name}_История.csv`, 'text/csv;charset=utf-8;')
+    toast.success('Файл Excel успешно скачан!', { id: 'csv-success' })
   }
 
   function exportToICS() {
-    if (!selectedPet || records.length === 0) return;
-
-    const eventsToExport = records
-      .filter(r => r.next_date)
-      .map(r => ({
-        id: r.id,
-        title: `${selectedPet.name}: ${RECORD_LABELS[r.type] || r.type}`,
-        description: r.note || '',
-        date: r.next_date as string
-      }));
-
-    if (eventsToExport.length === 0) {
-      toast.error('Нет предстоящих событий для экспорта', { id: 'ics-error' });
-      return;
+    if (!selectedPet || records.length === 0) return
+    const ics = generateIcsContent(selectedPet, records)
+    if (!ics) {
+      toast.error('Нет предстоящих событий для экспорта', { id: 'ics-error' })
+      return
     }
-
-    const icsString = generateICS(eventsToExport);
-    const blob = new Blob([icsString], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${selectedPet.name}_calendar.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success('Файл календаря скачан!', { id: 'ics-success' });
+    triggerDownload(ics, `${selectedPet.name}_calendar.ics`, 'text/calendar;charset=utf-8')
+    toast.success('Файл календаря скачан!', { id: 'ics-success' })
   }
 
   async function startFreeTrial() {
@@ -266,8 +230,8 @@ export default function Home() {
       toast.error(error.message, { id: toastId });
     } else {
       toast.success('Тестовая оплата прошла! Premium активирован! 🎉', { id: toastId });
-      setIsPremium(true); 
-      setShowPremiumModal(false); 
+      setIsPremium(true);
+      setShowPremiumModal(false);
     }
   }
 
@@ -298,7 +262,7 @@ export default function Home() {
     } else {
       toast.success('Аккаунт успешно удален. До свидания!', { id: toastId });
       await supabase.auth.signOut();
-      window.location.reload(); 
+      window.location.reload();
     }
   }
 
@@ -334,9 +298,9 @@ export default function Home() {
         <TrialBanner trialDaysLeft={trialDaysLeft} onOpenPremium={() => setShowPremiumModal(true)} />
 
         <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
-        
+
         <PremiumModal isOpen={showPremiumModal} onClose={() => setShowPremiumModal(false)} isPremium={isPremium} trialDaysLeft={trialDaysLeft} startFreeTrial={startFreeTrial} billingPeriod={billingPeriod} setBillingPeriod={setBillingPeriod} onPay={handleMockPayment} />
-        
+
         <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} session={session} isPremium={isPremium} trialDaysLeft={trialDaysLeft} newPassword={newPassword} setNewPassword={setNewPassword} updatePassword={updatePassword} updatingPassword={updatingPassword} onDeleteAccount={handleDeleteAccount} />
 
         <Header isDark={isDark} toggleTheme={toggleTheme} session={session} hasPremiumAccess={hasPremiumAccess} onOpenPremium={() => setShowPremiumModal(true)} onOpenSettings={() => setShowSettingsModal(true)} onLogout={handleLogout} />
@@ -348,10 +312,15 @@ export default function Home() {
 
           <div className={`${mobileTab === 'record' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
             <RecordForm selectedPet={selectedPet} hasPremiumAccess={hasPremiumAccess} recordsCount={records.length} editingRecordId={editingRecordId} addVaccineTemplates={addVaccineTemplates} saveRecord={saveRecord} recordType={recordType} setRecordType={setRecordType} recordValue={recordValue} setRecordValue={setRecordValue} recordDate={recordDate} setRecordDate={setRecordDate} recordNextDate={recordNextDate} setRecordNextDate={setRecordNextDate} recordNote={recordNote} setRecordNote={setRecordNote} savingRecord={savingRecord} resetRecordForm={resetRecordForm} />
-            
+
             {selectedPet && (
               <div className="mt-6 animate-in fade-in duration-500">
-                <EmergencyQR pet={selectedPet} />
+                <EmergencyQR
+                  pet={selectedPet}
+                  onTokenReset={(newToken: string) =>
+                    setPets(pets.map((p) => (p.id === selectedPet.id ? { ...p, emergency_token: newToken } : p)))
+                  }
+                />
               </div>
             )}
           </div>
@@ -362,7 +331,7 @@ export default function Home() {
         </main>
 
         <MobileNav mobileTab={mobileTab} setMobileTab={setMobileTab} />
-        
+
       </div>
       <Footer />
     </div>
