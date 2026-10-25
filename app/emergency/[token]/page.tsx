@@ -1,6 +1,5 @@
 // app/emergency/[token]/page.tsx
 import { createClient } from '@supabase/supabase-js';
-import { notFound } from 'next/navigation';
 import type { EmergencyPetInfo } from '@/components/types';
 
 interface EmergencyPageProps {
@@ -10,7 +9,6 @@ interface EmergencyPageProps {
 }
 
 export default async function EmergencyPage({ params }: EmergencyPageProps) {
-  // Для публичной страницы используем обычный клиент без куки
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -21,18 +19,31 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
     token: params.token,
   });
 
+  // ВРЕМЕННЫЙ БЛОК ДЛЯ ОТЛАДКИ
   if (error || !data) {
-    console.error('Ошибка RPC:', error);
-    notFound(); 
+    return (
+      <div className="p-8 font-mono text-sm">
+        <h1 className="text-xl text-red-600 font-bold mb-4">Ошибка базы данных</h1>
+        <p><b>Токен из URL:</b> {params.token}</p>
+        <p><b>Текст ошибки:</b> {error?.message || 'Ошибки нет'}</p>
+        <p><b>Данные:</b> {JSON.stringify(data)}</p>
+      </div>
+    );
   }
 
-  // Бронебойный вариант: берем объект из массива, если он там есть
   const pet = (Array.isArray(data) ? data[0] : data) as EmergencyPetInfo;
 
   if (!pet || !pet.name) {
-    notFound();
+    return (
+      <div className="p-8 font-mono text-sm">
+        <h1 className="text-xl text-red-600 font-bold mb-4">Питомец не найден или пустой</h1>
+        <p><b>Токен из URL:</b> {params.token}</p>
+        <p><b>Данные из базы:</b> {JSON.stringify(data)}</p>
+      </div>
+    );
   }
 
+  // Если всё ок, показываем карточку
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
@@ -57,28 +68,7 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
               {pet.species} {pet.breed ? `(${pet.breed})` : ''}
             </p>
           </div>
-
-          {pet.allergies && (
-            <div>
-              <span className="text-sm font-medium text-gray-500">
-                Аллергии / Особенности
-              </span>
-              <p className="text-red-600 font-medium">{pet.allergies}</p>
-            </div>
-          )}
         </div>
-
-        {pet.emergency_contact && (
-          <div className="mt-6 text-center">
-            <p className="mb-2 text-sm text-gray-600">Телефон владельца</p>
-            <a
-              href={`tel:${pet.emergency_contact}`}
-              className="inline-block w-full rounded-lg bg-blue-600 py-3 text-center text-lg font-bold text-white hover:bg-blue-700"
-            >
-              📞 Позвонить: {pet.emergency_contact}
-            </a>
-          </div>
-        )}
 
         <p className="mt-6 text-center text-xs text-gray-400">
           Сгенерировано в PawLog
