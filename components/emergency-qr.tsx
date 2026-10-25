@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
 import { supabase } from '@/lib/supabaseClient'; 
@@ -12,11 +13,13 @@ interface EmergencyQRProps {
 }
 
 export function EmergencyQR({ pet }: EmergencyQRProps) {
+  const router = useRouter();
   const [contact, setContact] = useState<string>(pet.emergency_contact || '');
-  const [notes, setNotes] = useState<string>(pet.medical_notes || '');
+  const [allergies, setAllergies] = useState<string>(pet.allergies || '');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   
   // Ссылка на блок с QR-кодом для скачивания
   const qrRef = useRef<HTMLDivElement>(null);
@@ -33,7 +36,7 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
       .from('pets')
       .update({
         emergency_contact: contact,
-        medical_notes: notes,
+        allergies: allergies, // <-- Сохраняем в правильную колонку
       })
       .eq('id', pet.id);
 
@@ -53,10 +56,9 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
     setIsDownloading(true);
 
     try {
-      // Превращаем блок в PNG картинку с высоким разрешением
       const dataUrl = await toPng(qrRef.current, { 
         cacheBust: true, 
-        pixelRatio: 3, // Чтобы картинка была четкой при печати
+        pixelRatio: 3,
         backgroundColor: '#ffffff' 
       });
 
@@ -69,6 +71,31 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
       alert('Не удалось скачать QR-код. Попробуйте сделать скриншот.');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Функция сброса токена (генерация нового QR)
+  const handleRegenerate = async (): Promise<void> => {
+    const confirmReset = window.confirm('Вы уверены? Старый QR-код перестанет работать, и вам нужно будет распечатать новый.');
+    if (!confirmReset) return;
+
+    setIsResetting(true);
+    
+    // Генерируем новый UUID прямо в браузере
+    const newToken = crypto.randomUUID();
+
+    const { error } = await supabase
+      .from('pets')
+      .update({ emergency_token: newToken })
+      .eq('id', pet.id);
+
+    setIsResetting(false);
+
+    if (error) {
+      alert('Ошибка при сбросе токена: ' + error.message);
+    } else {
+      // Обновляем страницу, чтобы подтянуть новый токен и отрисовать новый QR
+      router.refresh();
     }
   };
 
@@ -96,14 +123,27 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
             )}
           </div>
           
-          <button
-            type="button"
-            onClick={() => void handleDownload()}
-            disabled={isDownloading || !emergencyUrl}
-            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition disabled:opacity-50"
-          >
-            {isDownloading ? 'Скачивание...' : '⬇️ Скачать QR (PNG)'}
-          </button>
+          <div className="flex gap-4 items-center">
+            <button
+              type="button"
+              onClick={() => void handleDownload()}
+              disabled={isDownloading || !emergencyUrl}
+              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition disabled:opacity-50"
+            >
+              {isDownloading ? 'Скачивание...' : '⬇️ Скачать QR (PNG)'}
+            </button>
+
+            <span className="text-gray-300">|</span>
+
+            <button
+              type="button"
+              onClick={() => void handleRegenerate()}
+              disabled={isResetting}
+              className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium transition disabled:opacity-50"
+            >
+              {isResetting ? 'Сброс...' : '🔄 Сбросить QR'}
+            </button>
+          </div>
         </div>
 
         {/* Блок с полями ввода */}
@@ -123,17 +163,20 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
           </div>
 
           <div>
-            <label htmlFor="medical-notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Аллергии / Важная мед. информация
             </label>
             <textarea
-              id="medical-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              id="allergies"
+              value={allergies}
+              onChange={(e) => setAllergies(e.target.value)}
               placeholder="Например: Аллергия на курицу. Принимает лекарства."
               rows={3}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              ⚠️ Эту информацию увидят все, кто отсканирует QR-код. Не пишите здесь адрес или личные данные.
+            </p>
           </div>
 
           <button
