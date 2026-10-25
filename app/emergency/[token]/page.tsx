@@ -27,19 +27,18 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
     }
   );
 
-  // Вызываем безопасную SQL-функцию
+  // Вызываем безопасную SQL-функцию (теперь она отдает объект, а не массив)
   const { data, error } = await supabase.rpc('get_emergency_pet_info', {
     token: params.token,
   });
 
-  // ВАЖНО: Теперь data - это массив (список). 
-  // Проверяем, что он существует, является массивом и не пустой.
-  if (error || !data || !Array.isArray(data) || data.length === 0) {
-    notFound(); // Если токена нет, покажет 404
+  // Если есть ошибка или данных нет — показываем 404
+  if (error || !data) {
+    notFound(); 
   }
 
-  // Берем первого (и единственного) питомца из списка
-  const pet = data[0] as EmergencyPetInfo;
+  // Приводим тип (данные теперь объект)
+  const pet = data as EmergencyPetInfo;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
@@ -49,7 +48,9 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
             <span className="text-3xl">🚨</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Экстренная карточка</h1>
-          <p className="mt-2 text-sm text-gray-500">Если вы нашли этого питомца, свяжитесь с владельцем</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Если вы нашли этого питомца, свяжитесь с владельцем
+          </p>
         </div>
 
         <div className="space-y-4 rounded-lg bg-gray-50 p-4">
@@ -64,11 +65,12 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
             </p>
           </div>
 
-          {/* Показываем аллергии, если они есть */}
           {pet.allergies && (
             <div>
-              <span className="text-sm font-medium text-gray-500">Аллергии / Особенности</span>
-              <p className="text-gray-900 text-red-600 font-medium">{pet.allergies}</p>
+              <span className="text-sm font-medium text-gray-500">
+                Аллергии / Особенности
+              </span>
+              <p className="text-red-600 font-medium">{pet.allergies}</p>
             </div>
           )}
         </div>
@@ -84,7 +86,7 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
             </a>
           </div>
         )}
-        
+
         <p className="mt-6 text-center text-xs text-gray-400">
           Сгенерировано в PawLog
         </p>
