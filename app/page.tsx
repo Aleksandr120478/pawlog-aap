@@ -2,23 +2,25 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabaseClient'
-import { Session } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabaseClient'
+import { Session, AuthChangeEvent } from '@supabase/supabase-js'
 import toast from 'react-hot-toast'
-import LandingPage from '../components/LandingPage'
-import CalendarModal from '../components/CalendarModal'
-import { ShareModal, PremiumModal, SettingsModal } from '../components/AppModals'
-import { RECORD_LABELS, PetShare } from '../components/types'
-import Header from '../components/Header'
-import Footer from '../components/Footer'
-import PetsSidebar from '../components/PetsSidebar'
-import RecordForm from '../components/RecordForm'
-import PetTimeline from '../components/PetTimeline'
-import SkeletonLoader from '../components/SkeletonLoader'
-import { EmergencyQR } from '@/components/emergency-qr'; // <-- Импорт QR-кода
-import { usePets } from '../hooks/usePets'
-import { useRecords } from '../hooks/useRecords'
-import { generateICS } from '../lib/ics'
+import LandingPage from '@/components/LandingPage'
+import CalendarModal from '@/components/CalendarModal'
+import { ShareModal, PremiumModal, SettingsModal } from '@/components/AppModals'
+import { RECORD_LABELS, PetShare } from '@/components/types'
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
+import PetsSidebar from '@/components/PetsSidebar'
+import RecordForm from '@/components/RecordForm'
+import PetTimeline from '@/components/PetTimeline'
+import SkeletonLoader from '@/components/SkeletonLoader'
+import { EmergencyQR } from '@/components/emergency-qr';
+import MobileNav from '@/components/MobileNav'
+import TrialBanner from '@/components/TrialBanner'
+import { usePets } from '@/hooks/usePets'
+import { useRecords } from '@/hooks/useRecords'
+import { generateICS } from '@/lib/ics'
 
 function todayLocal() {
   const d = new Date()
@@ -120,11 +122,11 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       setSession(session)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, session: Session | null) => {
       setSession(session)
     })
     return () => subscription.unsubscribe()
@@ -329,12 +331,7 @@ export default function Home() {
           <CalendarModal records={records} selectedDate={calendarSelectedDate} onDayClick={setCalendarSelectedDate} onAddClick={handleAddFromCalendar} onClose={() => setShowCalendarModal(false)} />
         )}
 
-        {trialDaysLeft !== null && trialDaysLeft > 0 && (
-          <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-center py-2 text-sm font-medium print:hidden flex justify-center items-center gap-2 shadow-sm animate-in slide-in-from-top duration-500">
-            <span>✨ У вас активен Premium (Пробный период)! Осталось дней: {trialDaysLeft}</span>
-            <button onClick={() => setShowPremiumModal(true)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-xs transition active:scale-95">Продлить</button>
-          </div>
-        )}
+        <TrialBanner trialDaysLeft={trialDaysLeft} onOpenPremium={() => setShowPremiumModal(true)} />
 
         <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareEmail={shareEmail} setShareEmail={setShareEmail} onSubmit={handleShare} petShares={petShares} removeShare={removeShare} />
         
@@ -357,7 +354,6 @@ export default function Home() {
                 <EmergencyQR pet={selectedPet} />
               </div>
             )}
-
           </div>
 
           <div className={`${mobileTab === 'timeline' ? 'block animate-in fade-in slide-in-from-right-4 duration-300' : 'hidden'} md:block h-full`}>
@@ -365,11 +361,8 @@ export default function Home() {
           </div>
         </main>
 
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 pb-safe z-50 print:hidden shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
-          <button onClick={() => setMobileTab('pets')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'pets' ? 'text-rose-500 bg-rose-50/80 dark:bg-rose-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">🐾</span><span className="text-[10px] font-medium mt-1">Питомцы</span></button>
-          <button onClick={() => setMobileTab('record')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'record' ? 'text-green-600 bg-green-50/80 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">➕</span><span className="text-[10px] font-medium mt-1">Запись</span></button>
-          <button onClick={() => setMobileTab('timeline')} className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 active:scale-90 w-1/3 ${mobileTab === 'timeline' ? 'text-blue-500 bg-blue-50/80 dark:bg-blue-900/30' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}><span className="text-xl">📋</span><span className="text-[10px] font-medium mt-1">Лента</span></button>
-        </div>
+        <MobileNav mobileTab={mobileTab} setMobileTab={setMobileTab} />
+        
       </div>
       <Footer />
     </div>

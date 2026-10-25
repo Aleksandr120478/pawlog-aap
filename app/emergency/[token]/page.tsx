@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import type { EmergencyPetInfo } from '@/components/types';
 
-// Запрещаем поисковикам индексировать эту страницу
 export const metadata: Metadata = {
   title: 'Экстренная карточка питомца',
   robots: {
