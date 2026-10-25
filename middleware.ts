@@ -3,17 +3,21 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  // 1. САМОЕ ВАЖНОЕ: Сначала проверяем публичные пути.
-  // Если это экстренная карточка или сброс пароля — пропускаем сразу,
-  // не нагружая сервер проверкой авторизации.
+  // 1. Публичные пути (экстренная карточка и сброс пароля)
   if (
     request.nextUrl.pathname.startsWith('/emergency') ||
     request.nextUrl.pathname.startsWith('/update-password')
   ) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    
+    // Добавляем заголовки безопасности для публичных страниц
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    
+    return response;
   }
 
-  // 2. Для всех остальных страниц создаем клиент и проверяем авторизацию
+  // 2. Для остальных страниц проверяем авторизацию
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -41,7 +45,6 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Проверяем юзера (только для защищенных страниц)
   await supabase.auth.getUser();
 
   return response;

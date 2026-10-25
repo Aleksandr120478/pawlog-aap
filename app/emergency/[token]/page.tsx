@@ -1,7 +1,17 @@
 // app/emergency/[token]/page.tsx
 import { createClient } from '@supabase/supabase-js';
 import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
 import type { EmergencyPetInfo } from '@/components/types';
+
+// Запрещаем поисковикам индексировать эту страницу
+export const metadata: Metadata = {
+  title: 'Экстренная карточка питомца',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 interface EmergencyPageProps {
   params: {
@@ -15,17 +25,14 @@ export default async function EmergencyPage({ params }: EmergencyPageProps) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Вызываем безопасную SQL-функцию
   const { data, error } = await supabase.rpc('get_emergency_pet_info', {
     token: params.token,
   });
 
-  // Если токен неверный или данных нет — показываем страницу 404
   if (error || !data) {
     notFound(); 
   }
 
-  // Берем данные (объект или первый элемент массива)
   const pet = (Array.isArray(data) ? data[0] : data) as EmergencyPetInfo;
 
   if (!pet || !pet.name) {
