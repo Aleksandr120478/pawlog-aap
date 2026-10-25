@@ -3,6 +3,17 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+  // 1. САМОЕ ВАЖНОЕ: Сначала проверяем публичные пути.
+  // Если это экстренная карточка или сброс пароля — пропускаем сразу,
+  // не нагружая сервер проверкой авторизации.
+  if (
+    request.nextUrl.pathname.startsWith('/emergency') ||
+    request.nextUrl.pathname.startsWith('/update-password')
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Для всех остальных страниц создаем клиент и проверяем авторизацию
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -30,21 +41,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Проверяем юзера (только для защищенных страниц)
+  await supabase.auth.getUser();
 
-  // Пропускаем страницы emergency (для прохожих) и update-password (сброс пароля)
-  if (
-    request.nextUrl.pathname.startsWith('/emergency') ||
-    request.nextUrl.pathname.startsWith('/update-password')
-  ) {
-    return response;
-  }
-
-  // Если пользователь не авторизован, мы НЕ кидаем его на несуществующий /login.
-  // Мы просто возвращаем response. Главная страница (page.tsx) сама покажет форму входа.
-  
   return response;
 }
 
