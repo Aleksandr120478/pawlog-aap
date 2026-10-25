@@ -90,11 +90,24 @@ export default function Home() {
   }
 
   const fetchUserStatus = useCallback(async (userId: string) => {
-    let { data, error } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
+    // 1. Используем maybeSingle() — он не выдает ошибку, если записи нет, а возвращает null
+    let { data } = await supabase.from('user_status').select('*').eq('user_id', userId).maybeSingle()
 
-    if (error && error.code === 'PGRST116') {
-      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
-      if (!insertError) data = newData
+    // 2. Если записи нет — пытаемся создать
+    if (!data) {
+      const { data: newData, error: insertError } = await supabase
+        .from('user_status')
+        .insert({ user_id: userId })
+        .select()
+        .single()
+
+      if (!insertError) {
+        data = newData
+      } else if (insertError.code === '23505') {
+        // 3. Обработка Race Condition (unique violation): другая вкладка уже создала запись
+        const { data: retryData } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
+        if (retryData) data = retryData
+      }
     }
 
     if (data) {
