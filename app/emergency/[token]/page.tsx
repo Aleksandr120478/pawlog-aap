@@ -13,19 +13,21 @@ export const metadata: Metadata = {
 };
 
 interface EmergencyPageProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 export default async function EmergencyPage({ params }: EmergencyPageProps) {
+  const { token } = await params;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   const { data, error } = await supabase.rpc('get_emergency_pet_info', {
-    token: params.token,
+    token: token,
   });
 
   if (error || !data) {

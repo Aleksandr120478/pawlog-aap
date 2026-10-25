@@ -1,51 +1,53 @@
-// middleware.ts
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  // 1. Публичные пути (экстренная карточка и сброс пароля)
-  if (
-    request.nextUrl.pathname.startsWith('/emergency') ||
-    request.nextUrl.pathname.startsWith('/update-password')
-  ) {
-    const response = NextResponse.next();
-    
-    // Добавляем заголовки безопасности для публичных страниц
-    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    response.headers.set('Referrer-Policy', 'no-referrer');
-    
-    return response;
-  }
-
-  // 2. Для остальных страниц проверяем авторизацию
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
+  const path = request.nextUrl.pathname;
 
-  await supabase.auth.getUser();
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            response = NextResponse.next({
+              request,
+            });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
+
+    // Обновляем сессию. Если сессии нет — это нормально, просто идём дальше.
+    await supabase.auth.getUser();
+  } catch (error) {
+    // Если Supabase упал или сеть недоступна — логируем и отдаём страницу (без 500).
+    console.error('Supabase middleware error:', error);
+  }
+
+  // Заголовки безопасности для ВСЕХ страниц
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+
+  // Специфичные заголовки для публичных страниц
+  if (path.startsWith('/emergency') || path.startsWith('/update-password')) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+  }
 
   return response;
 }

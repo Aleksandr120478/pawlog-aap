@@ -78,7 +78,14 @@ export default function PetsSidebar({
             return (
               <div key={pet.id} onClick={() => setSelectedPetId(pet.id)} className={`flex items-center rounded-xl transition cursor-pointer ${selectedPetId === pet.id ? 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-700 border' : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'}`}>
                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden ml-3 shrink-0">
-                  {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" /> : <span className="text-lg">🐾</span>}
+                  {pet.avatar_url ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={pet.avatar_url} alt={pet.name} className="w-full h-full object-cover" />
+                    </>
+                  ) : (
+                    <span className="text-lg">🐾</span>
+                  )}
                 </div>
                 <div className="flex-1 text-left px-3 py-2">
                   <div className="flex items-center gap-2">
