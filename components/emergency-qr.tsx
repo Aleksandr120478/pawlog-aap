@@ -21,12 +21,12 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   
-  // Ссылка на блок с QR-кодом для скачивания
   const qrRef = useRef<HTMLDivElement>(null);
 
-  const emergencyUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/emergency/${pet.emergency_token}`
-    : '';
+  // ЖЕСТКО ЗАДАЕМ ОСНОВНОЙ ДОМЕН, чтобы QR-код всегда вел на рабочий сайт,
+  // даже если мы сейчас смотрим временную сборку Vercel.
+  const PRODUCTION_URL = 'https://pawlog-aap.vercel.app';
+  const emergencyUrl = `${PRODUCTION_URL}/emergency/${pet.emergency_token}`;
 
   const handleSave = async (): Promise<void> => {
     setIsSaving(true);
@@ -36,7 +36,7 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
       .from('pets')
       .update({
         emergency_contact: contact,
-        allergies: allergies, // <-- Сохраняем в правильную колонку
+        allergies: allergies,
       })
       .eq('id', pet.id);
 
@@ -50,7 +50,6 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
     }
   };
 
-  // Функция скачивания QR-кода
   const handleDownload = async (): Promise<void> => {
     if (!qrRef.current) return;
     setIsDownloading(true);
@@ -74,14 +73,11 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
     }
   };
 
-  // Функция сброса токена (генерация нового QR)
   const handleRegenerate = async (): Promise<void> => {
     const confirmReset = window.confirm('Вы уверены? Старый QR-код перестанет работать, и вам нужно будет распечатать новый.');
     if (!confirmReset) return;
 
     setIsResetting(true);
-    
-    // Генерируем новый UUID прямо в браузере
     const newToken = crypto.randomUUID();
 
     const { error } = await supabase
@@ -94,7 +90,6 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
     if (error) {
       alert('Ошибка при сбросе токена: ' + error.message);
     } else {
-      // Обновляем страницу, чтобы подтянуть новый токен и отрисовать новый QR
       router.refresh();
     }
   };
@@ -108,26 +103,19 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
 
       <div className="flex flex-col gap-6">
         
-        {/* Блок с QR-кодом и кнопкой скачивания */}
         <div className="flex flex-col items-center gap-3">
           <div 
             ref={qrRef} 
             className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
           >
-            {emergencyUrl ? (
-              <QRCode value={emergencyUrl} size={180} />
-            ) : (
-              <div className="flex h-[180px] w-[180px] items-center justify-center bg-gray-100 text-sm text-gray-400">
-                Загрузка...
-              </div>
-            )}
+            <QRCode value={emergencyUrl} size={180} />
           </div>
           
           <div className="flex gap-4 items-center">
             <button
               type="button"
               onClick={() => void handleDownload()}
-              disabled={isDownloading || !emergencyUrl}
+              disabled={isDownloading}
               className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition disabled:opacity-50"
             >
               {isDownloading ? 'Скачивание...' : '⬇️ Скачать QR (PNG)'}
@@ -146,7 +134,6 @@ export function EmergencyQR({ pet }: EmergencyQRProps) {
           </div>
         </div>
 
-        {/* Блок с полями ввода */}
         <div className="w-full space-y-4">
           <div>
             <label htmlFor="emergency-contact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
