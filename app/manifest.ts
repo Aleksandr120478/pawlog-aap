@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'PawLog - Дневник питомца',
-    short_name: 'PawLog',
+    name: 'PawLog — Дневник питомца', // Полное имя (для установки)
+    short_name: 'PawLog',             // Короткое имя (для иконки на экране)
     description: 'Удобный дневник здоровья питомцев',
     start_url: '/',
     display: 'standalone',
@@ -12,6 +12,12 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#e11d48',
     lang: 'ru',
     icons: [
+      {
+        src: '/icons/icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
       {
         src: '/icons/icon-512.png',
         sizes: '512x512',
@@ -22,7 +28,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/icons/icon-512.png', 
         sizes: '512x512',
         type: 'image/png',
-        purpose: 'maskable',
+        purpose: 'maskable', 
       },
     ],
   }
