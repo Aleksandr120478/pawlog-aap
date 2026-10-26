@@ -1,116 +1,63 @@
 'use client'
-
 import { useState, useEffect } from 'react'
-import toast from 'react-hot-toast'
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
 
 export default function InstallPWA() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isVisible, setIsVisible] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [showBanner, setShowBanner] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const [isAndroid, setIsAndroid] = useState(false)
 
   useEffect(() => {
-    // Если приложение уже установлено и открыто как PWA, не показываем
-    if (window.matchMedia('(display-mode: standalone)').matches) return
+    // Определяем платформу
+    const ua = window.navigator.userAgent.toLowerCase()
+    setIsIOS(/iphone|ipad|ipod/.test(ua))
+    setIsAndroid(/android/.test(ua))
 
-    const handler = (e: Event) => {
+    // Ловим событие установки (только для Chrome/Android)
+    const handler = (e: any) => {
       e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
+      setDeferredPrompt(e)
+      setShowBanner(true) // Показываем баннер, когда браузер разрешил установку
     }
-    
-    const installedHandler = () => {
-      setIsVisible(false)
-      toast.success('Приложение успешно установлено!', { id: 'pwa-installed' })
-    }
-
     window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', installedHandler)
 
-    // Показываем кнопку через 2 секунды, если пользователь не закрыл её ранее (TTL 7 дней)
-    const timer = setTimeout(() => {
-      const dismissedUntil = localStorage.getItem('pwa-dismissed-until')
-      if (!dismissedUntil || Date.now() > parseInt(dismissedUntil, 10)) {
-        setIsVisible(true)
-      }
-    }, 2000)
+    // Если приложение уже установлено, прячем баннер
+    window.addEventListener('appinstalled', () => {
+      setShowBanner(false)
+      setDeferredPrompt(null)
+    })
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler)
-      window.removeEventListener('appinstalled', installedHandler)
-      clearTimeout(timer)
-    }
+    return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  const handleInstall = async () => {
+  const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // Нативный установщик
+      // Для Android: вызываем нативное окно
       deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') {
-        setIsVisible(false)
+        setShowBanner(false)
       }
       setDeferredPrompt(null)
-    } else {
-      // Инструкция для iPhone или если браузер заблокировал установку
-      toast(
-        (t) => (
-          <div className="text-sm">
-            <p className="font-semibold mb-1">Установка на iPhone/iPad:</p>
-            <p>1. Нажмите кнопку «Поделиться» (квадрат со стрелкой).</p>
-            <p>2. Выберите «Добавить на главный экран».</p>
-            <button 
-              onClick={() => toast.dismiss(t.id)} 
-              className="mt-2 bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-md text-xs font-bold"
-            >
-              Понятно
-            </button>
-          </div>
-        ),
-        { duration: 8000, id: 'pwa-instructions' }
-      )
+    } else if (isIOS) {
+      // Для iOS: показываем инструкцию (или ничего, если баннер не нужен)
+      // Здесь можно показать модалку с инструкцией
     }
   }
 
-  const handleDismiss = () => {
-    setIsVisible(false)
-    // Скрываем на 7 дней (7 * 24 * 60 * 60 * 1000 миллисекунд)
-    const oneWeek = 7 * 24 * 60 * 60 * 1000
-    localStorage.setItem('pwa-dismissed-until', (Date.now() + oneWeek).toString())
-  }
-
-  if (!isVisible) return null
+  if (!showBanner && !isIOS) return null
 
   return (
-    // md:hidden скрывает кнопку на компьютерах, оставляя только на мобильных
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[340px] animate-in slide-in-from-bottom-8 duration-500 ease-out fade-in print:hidden md:hidden">
-      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-3 flex items-center justify-between gap-3">
-        
-        <div className="flex items-center gap-3">
-          <div className="bg-rose-50 dark:bg-rose-900/30 p-2.5 rounded-xl text-rose-500 flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-800 dark:text-white text-sm leading-tight">Установить PawLog</p>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Быстрый доступ с экрана</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button aria-label="Закрыть" onClick={handleDismiss} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 text-lg leading-none transition-colors">
-            &times;
-          </button>
-          <button onClick={handleInstall} className="bg-rose-500 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-rose-600 active:scale-95 transition-all shadow-sm">
-            Добавить
-          </button>
-        </div>
+    <div style={{ position: 'fixed', bottom: 20, left: 20, right: 20, zIndex: 9999, background: '#333', color: '#fff', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div>
+        <strong>Установить PawLog</strong>
+        <p style={{ fontSize: '12px', margin: 0 }}>{isIOS ? 'Нажмите «Поделиться» → «На экран «Домой»»' : 'Быстрый доступ с экрана'}</p>
       </div>
+      {isAndroid && deferredPrompt && (
+        <button onClick={handleInstallClick} style={{ background: '#e11d48', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>
+          Добавить
+        </button>
+      )}
     </div>
   )
 }
