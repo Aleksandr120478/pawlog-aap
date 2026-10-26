@@ -1,6 +1,6 @@
 // public/sw.js
 
-const CACHE_NAME = 'pawlog-cache-v1';
+const CACHE_NAME = 'pawlog-cache-v2';
 const urlsToCache = ['/', '/manifest.webmanifest', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
