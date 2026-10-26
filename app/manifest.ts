@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
- 
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'PawLog - Дневник питомца',
@@ -7,18 +7,22 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Удобный дневник здоровья питомцев',
     start_url: '/',
     display: 'standalone',
+    orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#e11d48',
+    lang: 'ru',
     icons: [
       {
-        src: 'https://cdn-icons-png.flaticon.com/192/6163/6163544.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-      {
-        src: 'https://cdn-icons-png.flaticon.com/512/6163/6163544.png',
+        src: '/icons/icon-512.png',
         sizes: '512x512',
         type: 'image/png',
+        purpose: 'any', // Обычная иконка
+      },
+      {
+        src: '/icons/icon-512.png', 
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable', // Иконка с отступами для Android
       },
     ],
   }
