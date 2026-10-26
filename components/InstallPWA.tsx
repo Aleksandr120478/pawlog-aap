@@ -8,15 +8,12 @@ export default function InstallPWA() {
   const [isIOS, setIsIOS] = useState(false)
 
   useEffect(() => {
-    // 1. Если приложение уже открыто как PWA (без адресной строки), не показываем баннер
     const isAppStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
     setIsStandalone(isAppStandalone)
 
-    // 2. Определяем iOS
     const ua = window.navigator.userAgent.toLowerCase()
     setIsIOS(/iphone|ipad|ipod/.test(ua))
 
-    // 3. Ловим событие установки (Chrome/Android)
     const handler = (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
@@ -24,7 +21,6 @@ export default function InstallPWA() {
     }
     window.addEventListener('beforeinstallprompt', handler)
 
-    // 4. Если это iOS, показываем баннер с инструкцией через 3 секунды
     if (!isAppStandalone && /iphone|ipad|ipod/.test(ua)) {
       setTimeout(() => setShowBanner(true), 3000)
     }
