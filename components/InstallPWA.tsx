@@ -1,15 +1,30 @@
 'use client'
 import { useState, useEffect } from 'react'
 
+// Создаем интерфейс для Safari, чтобы TypeScript знал про свойство standalone
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
+// Создаем интерфейс для события установки (чтобы не использовать any)
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
 export default function InstallPWA() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
   useEffect(() => {
-    const isAppStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    const nav = window.navigator as NavigatorWithStandalone;
+    const isAppStandalone = window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true;
     setIsStandalone(isAppStandalone)
 
     const ua = window.navigator.userAgent.toLowerCase()
@@ -17,9 +32,10 @@ export default function InstallPWA() {
 
     const handler = (e: Event) => {
       e.preventDefault()
-      setDeferredPrompt(e)
+      setDeferredPrompt(e as BeforeInstallPromptEvent)
       setShowBanner(true)
     }
+    
     window.addEventListener('beforeinstallprompt', handler)
 
     if (!isAppStandalone && /iphone|ipad|ipod/.test(ua)) {
