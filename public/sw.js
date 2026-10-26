@@ -1,5 +1,3 @@
-// public/sw.js
-
 const CACHE_NAME = 'pawlog-cache-v2';
 const urlsToCache = ['/', '/manifest.webmanifest', '/icons/icon-512.png'];
 
@@ -17,7 +15,6 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Добавляем обработчик fetch — он обязателен для установки на Android
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || event.request.url.includes('supabase.co')) return;
 

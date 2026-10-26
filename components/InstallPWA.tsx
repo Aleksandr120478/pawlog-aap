@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 
 export default function InstallPWA() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
@@ -14,7 +15,7 @@ export default function InstallPWA() {
     const ua = window.navigator.userAgent.toLowerCase()
     setIsIOS(/iphone|ipad|ipod/.test(ua))
 
-    const handler = (e: any) => {
+    const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
       setShowBanner(true)
@@ -49,7 +50,7 @@ export default function InstallPWA() {
   if (isStandalone || !showBanner) return null
 
   return (
-    <div className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-[9999] bg-gray-900 text-white p-4 rounded-2xl shadow-2xl border border-gray-700 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4">
+    <div className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 z-[9999] bg-gray-900 text-white p-4 rounded-2xl shadow-2xl border border-gray-700 flex flex-col gap-3">
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-rose-500 rounded-xl flex items-center justify-center text-2xl shadow-inner">🐾</div>
