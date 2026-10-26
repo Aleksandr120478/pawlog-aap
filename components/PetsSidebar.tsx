@@ -1,11 +1,7 @@
 // components/PetsSidebar.tsx
 'use client'
-import { Pet, SPECIES_ICONS } from './types'
+import { SPECIES_ICONS } from './types'
 import { useAppStore } from '@/store/useAppStore'
-
-interface PetsSidebarProps {
-  openShareModal: (id: string) => void;
-}
 
 function calculateAge(birthDate: string | null) {
   if (!birthDate) return null;
@@ -20,24 +16,28 @@ function calculateAge(birthDate: string | null) {
   return `${years > 0 ? years + ' г. ' : ''}${months > 0 ? months + ' мес.' : ''}`.trim();
 }
 
-export default function PetsSidebar({ openShareModal }: PetsSidebarProps) {
-  // Забираем только нужные данные из стора
+export default function PetsSidebar() {
   const pets = useAppStore((state) => state.pets)
   const selectedPetId = useAppStore((state) => state.selectedPetId)
   const setSelectedPetId = useAppStore((state) => state.setSelectedPetId)
   const session = useAppStore((state) => state.session)
   const hasPremiumAccess = useAppStore((state) => state.hasPremiumAccess)
   const editingPetId = useAppStore((state) => state.editingPetId)
-  
+  const petSpecies = useAppStore((state) => state.petSpecies)
+  const savingPet = useAppStore((state) => state.savingPet)
+  const savePet = useAppStore((state) => state.savePet)
+  const deletePet = useAppStore((state) => state.deletePet)
+  const startEditingPet = useAppStore((state) => state.startEditingPet)
+  const resetPetForm = useAppStore((state) => state.resetPetForm)
+  const openShareModal = useAppStore((state) => state.openShareModal)
+
   const petName = useAppStore((state) => state.petName)
   const setPetName = useAppStore((state) => state.setPetName)
-  const petSpecies = useAppStore((state) => state.petSpecies)
   const setPetSpecies = useAppStore((state) => state.setPetSpecies)
   const petBreed = useAppStore((state) => state.petBreed)
   const setPetBreed = useAppStore((state) => state.setPetBreed)
   const petBirthDate = useAppStore((state) => state.petBirthDate)
   const setPetBirthDate = useAppStore((state) => state.setPetBirthDate)
-  const petFile = useAppStore((state) => state.petFile)
   const setPetFile = useAppStore((state) => state.setPetFile)
   const petAllergies = useAppStore((state) => state.petAllergies)
   const setPetAllergies = useAppStore((state) => state.setPetAllergies)
@@ -47,12 +47,6 @@ export default function PetsSidebar({ openShareModal }: PetsSidebarProps) {
   const setPetFood = useAppStore((state) => state.setPetFood)
   const petVet = useAppStore((state) => state.petVet)
   const setPetVet = useAppStore((state) => state.setPetVet)
-
-  const savingPet = useAppStore((state) => state.savingPet)
-  const savePet = useAppStore((state) => state.savePet)
-  const deletePet = useAppStore((state) => state.deletePet)
-  const startEditingPet = useAppStore((state) => state.startEditingPet)
-  const resetPetForm = useAppStore((state) => state.resetPetForm)
 
   const ownedPetsCount = pets.length
 

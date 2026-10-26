@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
-import { Pet, HealthRecord, PetDocument } from '../components/types'
+import { Pet, HealthRecord, PetDocument, PetShare } from '../components/types'
 import { Session } from '@supabase/supabase-js'
 
 const PAGE_SIZE = 50
@@ -11,9 +11,41 @@ interface AppState {
   session: Session | null
   setSession: (session: Session | null) => void
   hasPremiumAccess: boolean
-  setHasPremiumAccess: (access: boolean) => void
+  
+  isDark: boolean
+  toggleTheme: () => Promise<void>
+
   showPremiumModal: boolean
   setShowPremiumModal: (show: boolean) => void
+  isPremium: boolean
+  trialEndsAt: string | null
+  trialDaysLeft: number | null
+  billingPeriod: 'monthly' | 'annual'
+  setBillingPeriod: (v: 'monthly' | 'annual') => void
+  fetchUserStatus: (userId: string) => Promise<void>
+  startFreeTrial: () => Promise<void>
+  handleMockPayment: () => Promise<void>
+
+  // Модалка Настроек
+  showSettingsModal: boolean
+  setShowSettingsModal: (show: boolean) => void
+  newPassword: string
+  setNewPassword: (v: string) => void
+  updatingPassword: boolean
+  updatePassword: (e: React.FormEvent) => Promise<void>
+  handleDeleteAccount: () => Promise<void>
+
+  // Модалка Поделиться
+  showShareModal: boolean
+  setShowShareModal: (show: boolean) => void
+  shareEmail: string
+  setShareEmail: (v: string) => void
+  sharingPetId: string | null
+  petShares: PetShare[]
+  fetchPetShares: (petId: string) => Promise<void>
+  openShareModal: (petId: string) => void
+  handleShare: (e: React.FormEvent) => Promise<void>
+  removeShare: (shareId: string) => Promise<void>
 
   // --- СОСТОЯНИЕ ПИТОМЦЕВ ---
   pets: Pet[]
@@ -87,16 +119,199 @@ export const useAppStore = create<AppState>((set, get) => ({
   session: null,
   setSession: (session) => set({ session }),
   hasPremiumAccess: false,
-  setHasPremiumAccess: (hasPremiumAccess) => set({ hasPremiumAccess }),
+  isDark: false,
+  
+  toggleTheme: async () => {
+    const { isDark, session } = get()
+    const newTheme = isDark ? 'light' : 'dark'
+    set({ isDark: newTheme === 'dark' })
+    if (newTheme === 'dark') document.documentElement.classList.add('dark')
+    else document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', newTheme)
+    if (session) {
+      await supabase.from('user_status').update({ theme: newTheme }).eq('user_id', session.user.id)
+    }
+  },
+
   showPremiumModal: false,
   setShowPremiumModal: (showPremiumModal) => set({ showPremiumModal }),
+  isPremium: false,
+  trialEndsAt: null,
+  trialDaysLeft: null,
+  billingPeriod: 'annual',
+  setBillingPeriod: (billingPeriod) => set({ billingPeriod }),
+
+  showSettingsModal: false,
+  setShowSettingsModal: (showSettingsModal) => set({ showSettingsModal }),
+  newPassword: '',
+  setNewPassword: (newPassword) => set({ newPassword }),
+  updatingPassword: false,
+
+  showShareModal: false,
+  setShowShareModal: (showShareModal) => set({ showShareModal }),
+  shareEmail: '',
+  setShareEmail: (shareEmail) => set({ shareEmail }),
+  sharingPetId: null,
+  petShares: [],
+
+  fetchUserStatus: async (userId) => {
+    let { data } = await supabase.from('user_status').select('*').eq('user_id', userId).maybeSingle()
+    if (!data) {
+      const { data: newData, error: insertError } = await supabase.from('user_status').insert({ user_id: userId }).select().single()
+      if (!insertError) data = newData
+      else if (insertError.code === '23505') {
+        const { data: retryData } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
+        if (retryData) data = retryData
+      }
+    }
+    if (data) {
+      const isPrem = data.is_premium || false
+      let tEndsAt = null
+      let tDaysLeft = null
+      if (data.trial_ends_at) {
+        tEndsAt = data.trial_ends_at
+        const end = new Date(data.trial_ends_at).getTime()
+        const now = new Date().getTime()
+        const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+        tDaysLeft = days > 0 ? days : 0
+      }
+      
+      set({ 
+        isPremium: isPrem, 
+        trialEndsAt: tEndsAt,
+        trialDaysLeft: tDaysLeft,
+        hasPremiumAccess: isPrem || (tDaysLeft !== null && tDaysLeft > 0)
+      })
+
+      if (data.theme) {
+        const isDarkTheme = data.theme === 'dark'
+        set({ isDark: isDarkTheme })
+        if (isDarkTheme) document.documentElement.classList.add('dark')
+        else document.documentElement.classList.remove('dark')
+        localStorage.setItem('theme', data.theme)
+      }
+    }
+  },
+
+  startFreeTrial: async () => {
+    const { session, fetchUserStatus } = get()
+    if (!session) return
+    const toastId = toast.loading('Активация Premium...', { id: 'trial-loading' })
+    const { error } = await supabase.rpc('start_free_trial')
+    if (error) {
+      toast.error(error.message, { id: toastId })
+    } else {
+      toast.success('Пробный период на 7 дней активирован!', { id: toastId })
+      set({ showPremiumModal: false })
+      fetchUserStatus(session.user.id)
+    }
+  },
+
+  handleMockPayment: async () => {
+    const { session } = get()
+    if (!session) return
+    if (process.env.NODE_ENV !== 'development') {
+      toast.error('Онлайн-оплата скоро появится!', { id: 'pay-soon' })
+      return
+    }
+    const toastId = toast.loading('Обработка тестового платежа...', { id: 'pay-loading' });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const { error } = await supabase.rpc('activate_mock_premium');
+    if (error) {
+      toast.error(error.message, { id: toastId });
+    } else {
+      toast.success('Тестовая оплата прошла! Premium активирован! 🎉', { id: toastId });
+      set({ isPremium: true, showPremiumModal: false, hasPremiumAccess: true });
+    }
+  },
+
+  updatePassword: async (e) => {
+    e.preventDefault()
+    const { newPassword } = get()
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Пароль должен быть минимум 6 символов', { id: 'pass-error' })
+      return
+    }
+    set({ updatingPassword: true })
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    set({ updatingPassword: false })
+    if (error) toast.error(error.message, { id: 'pass-error' })
+    else {
+      toast.success('Пароль успешно изменен!', { id: 'pass-success' })
+      set({ newPassword: '', showSettingsModal: false })
+    }
+  },
+
+  handleDeleteAccount: async () => {
+    if (!confirm('ВНИМАНИЕ! Вы уверены, что хотите навсегда удалить аккаунт и всех питомцев? Это действие нельзя отменить.')) return;
+    const toastId = toast.loading('Удаление аккаунта...', { id: 'delete-acc' });
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) {
+      toast.error('Ошибка удаления: ' + error.message, { id: toastId });
+    } else {
+      toast.success('Аккаунт успешно удален. До свидания!', { id: toastId });
+      await supabase.auth.signOut();
+      window.location.reload();
+    }
+  },
+
+  fetchPetShares: async (petId) => {
+    const { data } = await supabase.from('pet_shares').select('*').eq('pet_id', petId)
+    set({ petShares: data || [] })
+  },
+
+  openShareModal: (petId) => {
+    set({ sharingPetId: petId, shareEmail: '', showShareModal: true })
+    get().fetchPetShares(petId)
+  },
+
+  handleShare: async (e) => {
+    e.preventDefault()
+    const { shareEmail, sharingPetId, session, fetchPetShares } = get()
+    const cleanEmail = shareEmail.trim().toLowerCase();
+    
+    if (!cleanEmail || !sharingPetId) {
+      toast.error('Введите email', { id: 'share-error' })
+      return
+    }
+    if (cleanEmail === session?.user.email?.toLowerCase()) {
+      toast.error('Вы не можете поделиться с самим собой', { id: 'share-error' })
+      return
+    }
+
+    const toastId = toast.loading('Отправка приглашения...', { id: 'share-loading' })
+    const { data: existing } = await supabase.from('pet_shares').select('id').eq('pet_id', sharingPetId).eq('shared_with_email', cleanEmail).single()
+
+    if (existing) {
+      toast.error('Этот пользователь уже имеет доступ', { id: toastId })
+      return
+    }
+
+    const { error } = await supabase.from('pet_shares').insert({ pet_id: sharingPetId, shared_with_email: cleanEmail })
+    if (error) toast.error(error.message, { id: toastId })
+    else {
+      toast.success('Доступ предоставлен!', { id: toastId })
+      set({ shareEmail: '' })
+      fetchPetShares(sharingPetId)
+    }
+  },
+
+  removeShare: async (shareId) => {
+    const { sharingPetId, fetchPetShares } = get()
+    if (!sharingPetId) return
+    const { error } = await supabase.from('pet_shares').delete().eq('id', shareId)
+    if (error) toast.error(error.message, { id: 'remove-share-error' })
+    else {
+      toast.success('Доступ отозван', { id: 'remove-share-success' })
+      fetchPetShares(sharingPetId)
+    }
+  },
 
   // Инициализация питомцев
   pets: [],
   selectedPetId: null,
   setSelectedPetId: (id) => {
     set({ selectedPetId: id, recordsPage: 0 })
-    // При смене питомца сразу грузим его записи
     get().fetchRecords(0, false)
     get().fetchDocuments()
   },

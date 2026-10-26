@@ -1,19 +1,15 @@
 'use client'
-import toast from 'react-hot-toast'
-import { Session } from '@supabase/supabase-js'
-import { PetShare } from './types'
+import { useAppStore } from '@/store/useAppStore'
 
-interface ShareModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  shareEmail: string;
-  setShareEmail: (v: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  petShares: PetShare[];
-  removeShare: (id: string) => void;
-}
+export function ShareModal() {
+  const isOpen = useAppStore(state => state.showShareModal)
+  const onClose = () => useAppStore.getState().setShowShareModal(false)
+  const shareEmail = useAppStore(state => state.shareEmail)
+  const setShareEmail = useAppStore(state => state.setShareEmail)
+  const onSubmit = useAppStore(state => state.handleShare)
+  const petShares = useAppStore(state => state.petShares)
+  const removeShare = useAppStore(state => state.removeShare)
 
-export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmit, petShares, removeShare }: ShareModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
@@ -28,7 +24,7 @@ export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmi
             <p className="text-sm text-gray-400 italic">Пока никого нет</p>
           ) : (
             <ul className="space-y-2 max-h-[20vh] overflow-y-auto pr-1">
-              {petShares.map((share: PetShare) => (
+              {petShares.map((share) => (
                 <li key={share.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                   <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate pr-2">{share.shared_with_email}</span>
                   <button onClick={() => removeShare(share.id)} className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 transition">Отозвать</button>
@@ -48,18 +44,15 @@ export function ShareModal({ isOpen, onClose, shareEmail, setShareEmail, onSubmi
   )
 }
 
-interface PremiumModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  isPremium: boolean;
-  trialDaysLeft: number | null;
-  startFreeTrial: () => void;
-  billingPeriod: 'monthly' | 'annual';
-  setBillingPeriod: (v: 'monthly' | 'annual') => void;
-  onPay: () => void; 
-}
+export function PremiumModal() {
+  const isOpen = useAppStore(state => state.showPremiumModal)
+  const onClose = () => useAppStore.getState().setShowPremiumModal(false)
+  const trialDaysLeft = useAppStore(state => state.trialDaysLeft)
+  const startFreeTrial = useAppStore(state => state.startFreeTrial)
+  const billingPeriod = useAppStore(state => state.billingPeriod)
+  const setBillingPeriod = useAppStore(state => state.setBillingPeriod)
+  const onPay = useAppStore(state => state.handleMockPayment)
 
-export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startFreeTrial, billingPeriod, setBillingPeriod, onPay }: PremiumModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
@@ -101,20 +94,18 @@ export function PremiumModal({ isOpen, onClose, isPremium, trialDaysLeft, startF
   )
 }
 
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  session: Session | null;
-  isPremium: boolean;
-  trialDaysLeft: number | null;
-  newPassword: string;
-  setNewPassword: (v: string) => void;
-  updatePassword: (e: React.FormEvent) => void;
-  updatingPassword: boolean;
-  onDeleteAccount: () => void; 
-}
+export function SettingsModal() {
+  const isOpen = useAppStore(state => state.showSettingsModal)
+  const onClose = () => useAppStore.getState().setShowSettingsModal(false)
+  const session = useAppStore(state => state.session)
+  const isPremium = useAppStore(state => state.isPremium)
+  const trialDaysLeft = useAppStore(state => state.trialDaysLeft)
+  const newPassword = useAppStore(state => state.newPassword)
+  const setNewPassword = useAppStore(state => state.setNewPassword)
+  const updatePassword = useAppStore(state => state.updatePassword)
+  const updatingPassword = useAppStore(state => state.updatingPassword)
+  const onDeleteAccount = useAppStore(state => state.handleDeleteAccount)
 
-export function SettingsModal({ isOpen, onClose, session, isPremium, trialDaysLeft, newPassword, setNewPassword, updatePassword, updatingPassword, onDeleteAccount }: SettingsModalProps) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
