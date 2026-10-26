@@ -1,0 +1,17 @@
+{
+  "name": "PawLog - Дневник питомца",
+  "short_name": "PawLog",
+  "description": "Умный дневник здоровья вашего питомца",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/616/616408.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
