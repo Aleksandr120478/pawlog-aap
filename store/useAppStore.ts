@@ -7,7 +7,6 @@ import { Session } from '@supabase/supabase-js'
 const PAGE_SIZE = 50
 
 interface AppState {
-  // Сессия и статус
   session: Session | null
   setSession: (session: Session | null) => void
   hasPremiumAccess: boolean
@@ -26,7 +25,6 @@ interface AppState {
   startFreeTrial: () => Promise<void>
   handleMockPayment: () => Promise<void>
 
-  // Модалка Настроек
   showSettingsModal: boolean
   setShowSettingsModal: (show: boolean) => void
   newPassword: string
@@ -35,7 +33,6 @@ interface AppState {
   updatePassword: (e: React.FormEvent) => Promise<void>
   handleDeleteAccount: () => Promise<void>
 
-  // Модалка Поделиться
   showShareModal: boolean
   setShowShareModal: (show: boolean) => void
   shareEmail: string
@@ -47,7 +44,10 @@ interface AppState {
   handleShare: (e: React.FormEvent) => Promise<void>
   removeShare: (shareId: string) => Promise<void>
 
-  // --- СОСТОЯНИЕ ПИТОМЦЕВ ---
+  // НОВОЕ: Просмотр документов
+  viewingDocument: PetDocument | null
+  setViewingDocument: (doc: PetDocument | null) => void
+
   pets: Pet[]
   selectedPetId: string | null
   setSelectedPetId: (id: string | null) => void
@@ -73,7 +73,6 @@ interface AppState {
   petVet: string
   setPetVet: (v: string) => void
 
-  // --- СОСТОЯНИЕ ЗАПИСЕЙ ---
   records: HealthRecord[]
   documents: PetDocument[]
   savingRecord: boolean
@@ -90,12 +89,10 @@ interface AppState {
   recordNextDate: string
   setRecordNextDate: (v: string) => void
   
-  // Пагинация
   recordsPage: number
   hasMoreRecords: boolean
   loadingMoreRecords: boolean
 
-  // --- ДЕЙСТВИЯ ---
   fetchPets: () => Promise<void>
   startEditingPet: (pet: Pet) => void
   resetPetForm: () => void
@@ -115,7 +112,6 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Инициализация
   session: null,
   setSession: (session) => set({ session }),
   hasPremiumAccess: false,
@@ -153,6 +149,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShareEmail: (shareEmail) => set({ shareEmail }),
   sharingPetId: null,
   petShares: [],
+
+  viewingDocument: null,
+  setViewingDocument: (viewingDocument) => set({ viewingDocument }),
 
   fetchUserStatus: async (userId) => {
     let { data } = await supabase.from('user_status').select('*').eq('user_id', userId).maybeSingle()
@@ -307,7 +306,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Инициализация питомцев
   pets: [],
   selectedPetId: null,
   setSelectedPetId: (id) => {
@@ -337,7 +335,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   petVet: '',
   setPetVet: (petVet) => set({ petVet }),
 
-  // Инициализация записей
   records: [],
   documents: [],
   savingRecord: false,
@@ -354,12 +351,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   recordNextDate: '',
   setRecordNextDate: (recordNextDate) => set({ recordNextDate }),
 
-  // Пагинация
   recordsPage: 0,
   hasMoreRecords: false,
   loadingMoreRecords: false,
 
-  // --- ДЕЙСТВИЯ ПИТОМЦЕВ ---
   fetchPets: async () => {
     const { session } = get()
     if (!session?.user?.id) return
@@ -479,7 +474,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // --- ДЕЙСТВИЯ ЗАПИСЕЙ ---
   fetchRecords: async (page = 0, append = false) => {
     const { selectedPetId } = get()
     if (!selectedPetId) {

@@ -17,7 +17,6 @@ interface PetTimelineProps {
   onOpenCalendar: () => void;
 }
 
-// Локальная функция для цветов статуса (перенесли из page.tsx)
 function getReminderStatus(nextDate: string | null) {
   const raw = getReminderStatusRaw(nextDate)
   if (!raw) return null
@@ -32,10 +31,10 @@ function getReminderStatus(nextDate: string | null) {
 export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps) {
   const [dashboardTab, setDashboardTab] = useState<'list' | 'docs'>('list')
 
-  // Данные из стора
   const selectedPet = useAppStore(state => state.pets.find(p => p.id === state.selectedPetId) || null)
   const records = useAppStore(state => state.records)
   const documents = useAppStore(state => state.documents)
+  const setViewingDocument = useAppStore(state => state.setViewingDocument)
   
   const startEditingRecord = useAppStore(state => state.startEditingRecord)
   const deleteRecord = useAppStore(state => state.deleteRecord)
@@ -46,7 +45,6 @@ export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps
   const loadingMoreRecords = useAppStore(state => state.loadingMoreRecords)
   const loadMoreRecords = useAppStore(state => state.loadMoreRecords)
 
-  // Вычисления переносим сюда через useMemo (чтобы не пересчитывать при каждом рендере)
   const totalExpenses = useMemo(() => {
     return records.filter(r => r.type === 'expense' && r.value).reduce((acc, r) => acc + Number(r.value), 0)
   }, [records])
@@ -67,7 +65,6 @@ export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps
     )
   }
 
-  // Функции экспорта перенесли сюда
   const handleExportPDF = async () => {
     const toastId = toast.loading('Генерация PDF...', { id: 'pdf-loading' });
     try {
@@ -103,7 +100,6 @@ export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps
   return (
     <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col md:max-h-[calc(100vh-120px)]">
       
-      {/* Шапка с вкладками */}
       <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2 shrink-0">
         <h2 className="text-lg font-bold text-gray-800 dark:text-white">Дневник: {selectedPet.name}</h2>
         <div className="flex gap-2">
@@ -138,7 +134,6 @@ export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps
         </div>
       )}
 
-      {/* Кнопки экспорта */}
       {dashboardTab === 'list' && (
         <div className="flex flex-wrap gap-2 mb-4 print:hidden shrink-0">
           <button onClick={onOpenCalendar} className="text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 px-3 py-1.5 rounded-lg transition font-medium">
@@ -237,8 +232,9 @@ export default function PetTimeline({ isDark, onOpenCalendar }: PetTimelineProps
                     <span className="text-3xl mb-2">📄</span>
                     <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate w-full">{doc.name}</p>
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 rounded-lg transition-opacity">
-                       <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-white bg-blue-500 p-1.5 rounded-full hover:bg-blue-600">👁</a>
-                       <button onClick={() => deleteDocument(doc.id, doc.url)} className="text-white bg-red-500 p-1.5 rounded-full hover:bg-red-600">✕</button>
+                       {/* ТЕПЕРЬ ОТКРЫВАЕМ МОДАЛКУ ВМЕСТО НОВОЙ ВКЛАДКИ */}
+                       <button onClick={() => setViewingDocument(doc)} className="text-white bg-blue-500 p-1.5 rounded-full hover:bg-blue-600" title="Посмотреть">👁</button>
+                       <button onClick={() => deleteDocument(doc.id, doc.url)} className="text-white bg-red-500 p-1.5 rounded-full hover:bg-red-600" title="Удалить">✕</button>
                     </div>
                   </div>
                 ))}

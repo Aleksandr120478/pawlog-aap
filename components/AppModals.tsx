@@ -136,3 +136,38 @@ export function SettingsModal() {
     </div>
   )
 }
+
+// НОВАЯ МОДАЛКА ДЛЯ ДОКУМЕНТОВ
+export function DocumentViewerModal() {
+  const doc = useAppStore(state => state.viewingDocument)
+  const setViewingDocument = useAppStore(state => state.setViewingDocument)
+
+  if (!doc) return null
+
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.url)
+  const isPdf = /\.pdf$/i.test(doc.url)
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="relative w-full max-w-4xl h-[85vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
+          <h3 className="font-bold text-gray-800 dark:text-white truncate pr-4">{doc.name}</h3>
+          <button onClick={() => setViewingDocument(null)} className="text-gray-500 hover:text-red-500 text-2xl leading-none transition">&times;</button>
+        </div>
+        <div className="flex-1 bg-gray-100 dark:bg-gray-950 overflow-auto p-4 flex justify-center">
+          {isImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={doc.url} alt={doc.name} className="max-w-full max-h-full object-contain rounded" />
+          ) : isPdf ? (
+            <iframe src={doc.url} className="w-full h-full border-none rounded" title={doc.name} />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full">
+              <p className="text-gray-500 mb-4">Предпросмотр недоступен для этого формата.</p>
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">Открыть в новой вкладке</a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

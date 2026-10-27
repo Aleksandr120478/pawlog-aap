@@ -7,7 +7,7 @@ import { AuthChangeEvent } from '@supabase/supabase-js'
 import toast from 'react-hot-toast'
 import LandingPage from '@/components/LandingPage'
 import CalendarModal from '@/components/CalendarModal'
-import { ShareModal, PremiumModal, SettingsModal } from '@/components/AppModals'
+import { ShareModal, PremiumModal, SettingsModal, DocumentViewerModal } from '@/components/AppModals'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import PetsSidebar from '@/components/PetsSidebar'
@@ -33,7 +33,6 @@ export default function Home() {
   const fetchPets = useAppStore(state => state.fetchPets)
   const records = useAppStore(state => state.records)
   
-  // Достаем нужные функции из стора точечно, чтобы линтер не ругался
   const fetchUserStatus = useAppStore(state => state.fetchUserStatus)
   const setEditingRecordId = useAppStore(state => state.setEditingRecordId)
   const setRecordType = useAppStore(state => state.setRecordType)
@@ -129,6 +128,9 @@ export default function Home() {
         <ShareModal />
         <PremiumModal />
         <SettingsModal />
+        
+        {/* НОВАЯ МОДАЛКА ЗДЕСЬ */}
+        <DocumentViewerModal />
 
         <Header isDark={isDark} toggleTheme={toggleTheme} session={session} hasPremiumAccess={hasPremiumAccess} onOpenPremium={() => setShowPremiumModal(true)} onOpenSettings={() => setShowSettingsModal(true)} onLogout={handleLogout} />
 
