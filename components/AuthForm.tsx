@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 
 export default function AuthForm() {
   const [isLogin, setIsLogin] = useState(true)
@@ -9,14 +10,23 @@ export default function AuthForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string>('')
+  
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!captchaToken) {
+      return toast.error('Пожалуйста, дождитесь проверки капчи', { id: 'captcha-err' })
+    }
+
     setLoading(true)
 
     if (isForgot) {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
+        captchaToken,
       })
       if (error) toast.error(error.message, { id: 'auth-err' })
       else {
@@ -24,13 +34,28 @@ export default function AuthForm() {
         setIsForgot(false)
       }
     } else if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) toast.error('Неверный email или пароль', { id: 'auth-err' })
+      const { error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: { captchaToken } 
+      })
+      if (error) toast.error(error.message, { id: 'auth-err' })
     } else {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: { 
+          captchaToken,
+          emailRedirectTo: `${window.location.origin}/`
+        } 
+      })
       if (error) toast.error(error.message, { id: 'auth-err' })
       else toast.success('Регистрация успешна! Проверьте почту для подтверждения.', { id: 'auth-success' })
     }
+    
+    // Сбрасываем капчу после любой попытки, так как токен одноразовый
+    turnstileRef.current?.reset()
+    setCaptchaToken('')
     setLoading(false)
   }
 
@@ -47,7 +72,9 @@ export default function AuthForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
+          <label htmlFor="email" className="sr-only">Email</label>
           <input 
+            id="email"
             type="email" 
             placeholder="Email" 
             value={email} 
@@ -59,7 +86,9 @@ export default function AuthForm() {
         
         {!isForgot && (
           <div>
+            <label htmlFor="password" className="sr-only">Пароль</label>
             <input 
+              id="password"
               type="password" 
               placeholder="Пароль" 
               value={password} 
@@ -82,6 +111,20 @@ export default function AuthForm() {
             </button>
           </div>
         )}
+
+        {/* ВИДЖЕТ КАПЧИ */}
+        <div className="flex justify-center py-2">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
+            onSuccess={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken('')} // Если капча протухла, очищаем токен
+            options={{
+              theme: 'light',
+              language: 'ru',
+            }}
+          />
+        </div>
 
         <button 
           type="submit" 
