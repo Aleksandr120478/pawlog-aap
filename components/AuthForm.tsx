@@ -14,7 +14,7 @@ export default function AuthForm() {
   
   const turnstileRef = useRef<TurnstileInstance>(null)
 
-  // Перехват реферального кода из ссылки
+  // Перехватываем код из ссылки и сохраняем
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const refCode = params.get('ref')
@@ -64,20 +64,6 @@ export default function AuthForm() {
         toast.error(error.message, { id: 'auth-err' })
       } else {
         toast.success('Регистрация успешна! Проверьте почту для подтверждения.', { id: 'auth-success' })
-        
-        const pendingRef = localStorage.getItem('pending_referral')
-        if (pendingRef) {
-          const { error: rpcError } = await supabase.rpc('apply_referral_bonus', { 
-            input_referral_code: pendingRef 
-          })
-          
-          if (rpcError) {
-            console.error('Ошибка применения бонуса:', rpcError.message)
-          } else {
-            toast.success('Бонус по приглашению активирован!', { id: 'ref-success' })
-            localStorage.removeItem('pending_referral')
-          }
-        }
       }
     }
     

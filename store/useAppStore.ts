@@ -165,6 +165,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
     if (data) {
+      // ПРОВЕРКА РЕФЕРАЛЬНОГО КОДА ПОСЛЕ ПОДТВЕРЖДЕНИЯ ПОЧТЫ
+      const pendingRef = localStorage.getItem('pending_referral')
+      if (pendingRef) {
+        const { error: rpcError } = await supabase.rpc('apply_referral_bonus', { 
+          input_referral_code: pendingRef 
+        })
+        
+        if (rpcError) {
+          console.error('Ошибка применения бонуса:', rpcError.message)
+          // Если код уже был использован, удаляем его, чтобы не спамить запросами
+          if (rpcError.message.includes('уже активировали')) {
+            localStorage.removeItem('pending_referral')
+          }
+        } else {
+          toast.success('Бонус по приглашению активирован! (30 дней Premium)', { id: 'ref-success' })
+          localStorage.removeItem('pending_referral')
+          // Обновляем данные из базы, чтобы подтянуть новые даты Premium
+          const { data: updatedData } = await supabase.from('user_status').select('*').eq('user_id', userId).single()
+          if (updatedData) data = updatedData
+        }
+      }
+
       const isPrem = data.is_premium || false
       let tEndsAt = null
       let tDaysLeft = null
