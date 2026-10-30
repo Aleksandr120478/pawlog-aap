@@ -10,6 +10,7 @@ interface AppState {
   session: Session | null
   setSession: (session: Session | null) => void
   hasPremiumAccess: boolean
+  referralCode: string | null
   
   isDark: boolean
   toggleTheme: () => Promise<void>
@@ -44,7 +45,6 @@ interface AppState {
   handleShare: (e: React.FormEvent) => Promise<void>
   removeShare: (shareId: string) => Promise<void>
 
-  // НОВОЕ: Просмотр документов
   viewingDocument: PetDocument | null
   setViewingDocument: (doc: PetDocument | null) => void
 
@@ -115,6 +115,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   session: null,
   setSession: (session) => set({ session }),
   hasPremiumAccess: false,
+  referralCode: null,
   isDark: false,
   
   toggleTheme: async () => {
@@ -179,7 +180,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         isPremium: isPrem, 
         trialEndsAt: tEndsAt,
         trialDaysLeft: tDaysLeft,
-        hasPremiumAccess: isPrem || (tDaysLeft !== null && tDaysLeft > 0)
+        hasPremiumAccess: isPrem || (tDaysLeft !== null && tDaysLeft > 0),
+        referralCode: data.referral_code || null
       })
 
       if (data.theme) {

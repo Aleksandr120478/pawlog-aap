@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import toast from 'react-hot-toast'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
@@ -13,6 +13,16 @@ export default function AuthForm() {
   const [captchaToken, setCaptchaToken] = useState<string>('')
   
   const turnstileRef = useRef<TurnstileInstance>(null)
+
+  // Перехват реферального кода из ссылки
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const refCode = params.get('ref')
+    if (refCode) {
+      localStorage.setItem('pending_referral', refCode)
+      toast.success('Реферальный код приглашения применен!', { id: 'ref-code' })
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,11 +59,28 @@ export default function AuthForm() {
           emailRedirectTo: `${window.location.origin}/`
         } 
       })
-      if (error) toast.error(error.message, { id: 'auth-err' })
-      else toast.success('Регистрация успешна! Проверьте почту для подтверждения.', { id: 'auth-success' })
+      
+      if (error) {
+        toast.error(error.message, { id: 'auth-err' })
+      } else {
+        toast.success('Регистрация успешна! Проверьте почту для подтверждения.', { id: 'auth-success' })
+        
+        const pendingRef = localStorage.getItem('pending_referral')
+        if (pendingRef) {
+          const { error: rpcError } = await supabase.rpc('apply_referral_bonus', { 
+            input_referral_code: pendingRef 
+          })
+          
+          if (rpcError) {
+            console.error('Ошибка применения бонуса:', rpcError.message)
+          } else {
+            toast.success('Бонус по приглашению активирован!', { id: 'ref-success' })
+            localStorage.removeItem('pending_referral')
+          }
+        }
+      }
     }
     
-    // Сбрасываем капчу после любой попытки, так как токен одноразовый
     turnstileRef.current?.reset()
     setCaptchaToken('')
     setLoading(false)
@@ -112,13 +139,12 @@ export default function AuthForm() {
           </div>
         )}
 
-        {/* ВИДЖЕТ КАПЧИ */}
         <div className="flex justify-center py-2">
           <Turnstile
             ref={turnstileRef}
             siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
-            onSuccess={(token) => setCaptchaToken(token)}
-            onExpire={() => setCaptchaToken('')} // Если капча протухла, очищаем токен
+            onSuccess={(token: string) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken('')}
             options={{
               theme: 'light',
               language: 'ru',
