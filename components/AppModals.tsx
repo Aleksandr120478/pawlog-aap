@@ -1,5 +1,6 @@
 'use client'
 import { useAppStore } from '@/store/useAppStore'
+import toast from 'react-hot-toast'
 
 export function ShareModal() {
   const isOpen = useAppStore(state => state.showShareModal)
@@ -105,21 +106,47 @@ export function SettingsModal() {
   const updatePassword = useAppStore(state => state.updatePassword)
   const updatingPassword = useAppStore(state => state.updatingPassword)
   const onDeleteAccount = useAppStore(state => state.handleDeleteAccount)
+  const referralCode = useAppStore(state => state.referralCode)
 
   if (!isOpen) return null
+
+  const referralLink = typeof window !== 'undefined' && referralCode 
+    ? `${window.location.origin}/?ref=${referralCode}` 
+    : 'Загрузка...'
+
+  const copyToClipboard = () => {
+    if (referralCode && typeof window !== 'undefined') {
+      navigator.clipboard.writeText(`${window.location.origin}/?ref=${referralCode}`)
+      toast.success('Ссылка скопирована!')
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative p-6 md:p-8">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700 relative p-6 md:p-8 max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-white text-2xl leading-none z-10">&times;</button>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Настройки профиля</h2>
+        
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ваш Email:</p>
           <p className="font-medium text-gray-800 dark:text-gray-100">{session?.user?.email}</p>
         </div>
+
         <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-100 dark:border-rose-800">
           <p className="text-sm text-rose-800 dark:text-rose-300 font-medium mb-1">Ваш тариф:</p>
           <p className="text-lg font-bold text-rose-900 dark:text-rose-200">{isPremium ? 'Premium (Навсегда)' : (trialDaysLeft && trialDaysLeft > 0 ? `Пробный период (${trialDaysLeft} дн.)` : 'Бесплатный')}</p>
         </div>
+
+        {/* БЛОК РЕФЕРАЛЬНОЙ ПРОГРАММЫ */}
+        <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
+          <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300 mb-1">🎁 Пригласите друга</p>
+          <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-3">Подарите другу 30 дней Premium, и получите 30 дней в подарок!</p>
+          <div className="flex gap-2">
+            <input type="text" readOnly value={referralLink} className="w-full px-2 py-1.5 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-500" />
+            <button onClick={copyToClipboard} className="bg-indigo-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-indigo-600 shrink-0 transition">Копировать</button>
+          </div>
+        </div>
+
         <form onSubmit={updatePassword} className="space-y-4 mb-8">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Сменить пароль</p>
           <input type="password" placeholder="Новый пароль (мин. 6 символов)" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-3 border dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none" required minLength={6} />
@@ -137,7 +164,6 @@ export function SettingsModal() {
   )
 }
 
-// НОВАЯ МОДАЛКА ДЛЯ ДОКУМЕНТОВ
 export function DocumentViewerModal() {
   const doc = useAppStore(state => state.viewingDocument)
   const setViewingDocument = useAppStore(state => state.setViewingDocument)
